@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 final class NotchPanel: NSPanel {
+    private weak var hostingLayer: CALayer?
+
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -24,7 +26,17 @@ final class NotchPanel: NSPanel {
         let hostingView = NSHostingView(rootView: view)
         hostingView.wantsLayer = true
         hostingView.layer?.isOpaque = false
-        hostingView.layer?.backgroundColor = .clear
+        hostingView.layer?.backgroundColor = CGColor.clear
+        hostingView.layer?.masksToBounds = true
+        hostingView.layer?.cornerCurve = .continuous
+        if #available(macOS 14.0, *) {
+            hostingView.sceneBridgingOptions = []
+        }
         contentView = hostingView
+        hostingLayer = hostingView.layer
+    }
+
+    func updateCornerRadius(_ radius: CGFloat) {
+        hostingLayer?.cornerRadius = radius
     }
 }

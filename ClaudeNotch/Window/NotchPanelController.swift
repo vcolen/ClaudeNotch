@@ -70,6 +70,7 @@ final class NotchPanelController {
             }
         )
         panel.setContent(notchView)
+        panel.updateCornerRadius(8)
         panel.orderFrontRegardless()
 
         startObservingState()
@@ -112,6 +113,7 @@ final class NotchPanelController {
         }
 
         panel.hasShadow = panelState.isExpanded
+        panel.updateCornerRadius(panelState.isExpanded ? 16 : 8)
     }
 
     private static func computeFrame(
