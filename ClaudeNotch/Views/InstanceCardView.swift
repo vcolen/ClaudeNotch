@@ -10,10 +10,24 @@ struct InstanceCardView: View {
         VStack(alignment: .leading, spacing: 5) {
             // Top row: project name + status badge
             HStack(alignment: .center) {
-                Text(instance.projectName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                HStack(spacing: 0) {
+                    Text(instance.projectName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .layoutPriority(1)
+
+                    if let branch = instance.branchName {
+                        Text("  /  ")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(NotchTokens.Branch.separator)
+
+                        Text(branch)
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(NotchTokens.Branch.name)
+                    }
+                }
+                .lineLimit(1)
+                .truncationMode(.tail)
 
                 Spacer(minLength: 8)
 
@@ -120,6 +134,7 @@ struct InstanceCardView: View {
             i.model = "opus 4.6"
             i.cost = 1.23
             i.contextUsagePercent = 0.65
+            i.branchName = "main"
             return i
         }())
 
@@ -128,6 +143,7 @@ struct InstanceCardView: View {
             i.model = "sonnet 4.6"
             i.cost = 0.45
             i.contextUsagePercent = 0.3
+            i.branchName = "feature/PROJ-1234-implement-user-auth-flow"
             return i
         }())
 

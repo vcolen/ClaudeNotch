@@ -42,6 +42,9 @@
 		A1B2C3D4000000D1 /* SocketEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000041 /* SocketEventTests.swift */; };
 		A1B2C3D4000000D2 /* CostReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000042 /* CostReaderTests.swift */; };
 		A1B2C3D4000000D3 /* ITermSanitizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000043 /* ITermSanitizationTests.swift */; };
+		/* GitBranch Sources */
+		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
+		A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000044 /* GitBranchReaderTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,6 +99,9 @@
 		A1B2C3D400000041 /* SocketEventTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketEventTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000042 /* CostReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostReaderTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000043 /* ITermSanitizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ITermSanitizationTests.swift; sourceTree = "<group>"; };
+		/* GitBranch */
+		A1B2C3D400000027 /* GitBranchReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReader.swift; sourceTree = "<group>"; };
+		A1B2C3D400000044 /* GitBranchReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReaderTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +174,7 @@
 				A1B2C3D400000016 /* InstanceManager.swift */,
 				A1B2C3D400000017 /* SocketListener.swift */,
 				A1B2C3D400000018 /* CostReader.swift */,
+				A1B2C3D400000027 /* GitBranchReader.swift */,
 				A1B2C3D400000019 /* PanelState.swift */,
 			);
 			path = Data;
@@ -221,6 +228,7 @@
 				A1B2C3D400000041 /* SocketEventTests.swift */,
 				A1B2C3D400000042 /* CostReaderTests.swift */,
 				A1B2C3D400000043 /* ITermSanitizationTests.swift */,
+				A1B2C3D400000044 /* GitBranchReaderTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -355,6 +363,7 @@
 				A1B2C3D4000000C1 /* ITermIntegration.swift in Sources */,
 				A1B2C3D4000000C2 /* RecentProjectsStore.swift in Sources */,
 				A1B2C3D4000000C3 /* DesignTokens.swift in Sources */,
+				A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -366,6 +375,7 @@
 				A1B2C3D4000000D1 /* SocketEventTests.swift in Sources */,
 				A1B2C3D4000000D2 /* CostReaderTests.swift in Sources */,
 				A1B2C3D4000000D3 /* ITermSanitizationTests.swift in Sources */,
+				A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

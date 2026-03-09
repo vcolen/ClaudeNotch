@@ -9,6 +9,11 @@ enum NotchTokens {
         static let idle = Color.white.opacity(0.4)
     }
 
+    enum Branch {
+        static let separator = Color.white.opacity(0.25)
+        static let name = Color.white.opacity(0.45)
+    }
+
     enum Surface {
         static let cardBackground = Color.white.opacity(0.06)
         static let cardHover = Color.white.opacity(0.12)

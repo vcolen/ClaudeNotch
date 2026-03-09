@@ -12,6 +12,7 @@ final class InstanceManager {
     private var costPollTask: Task<Void, Never>?
     private var stateFilePollTask: Task<Void, Never>?
     private let costReader = CostReader()
+    private let branchReader = GitBranchReader()
 
     private static let stateFilePath = "/tmp/screen-blocker/state.json"
 
@@ -97,10 +98,12 @@ final class InstanceManager {
                 if existing.cwd != inst.cwd {
                     existing.cwd = inst.cwd
                     existing.projectName = (inst.cwd as NSString).lastPathComponent
+                    existing.branchName = branchReader.readBranch(forDirectory: inst.cwd)
                 }
             } else {
                 // New instance
                 let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
+                instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
                 instances[sessionId] = instance
             }
         }
@@ -145,8 +148,11 @@ final class InstanceManager {
             existing.status = mappedStatus
             existing.updatedAt = Date()
             existing.pid = event.pid
-            existing.cwd = event.cwd
-            existing.projectName = (event.cwd as NSString).lastPathComponent
+            if existing.cwd != event.cwd {
+                existing.cwd = event.cwd
+                existing.projectName = (event.cwd as NSString).lastPathComponent
+                existing.branchName = branchReader.readBranch(forDirectory: event.cwd)
+            }
             if let tty = event.tty {
                 existing.tty = tty
             }
@@ -161,6 +167,7 @@ final class InstanceManager {
                 status: mappedStatus,
                 tty: event.tty
             )
+            instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             if let tool = event.tool {
                 instance.lastTool = tool
             }
@@ -235,6 +242,7 @@ final class InstanceManager {
                 instance.model = costInfo.model
                 instance.contextUsagePercent = costInfo.contextPercent
             }
+            instance.branchName = branchReader.readBranch(forDirectory: instance.cwd)
         }
     }
 }
