@@ -54,18 +54,16 @@ final class NotchPanelController {
             instanceManager: instanceManager,
             panelState: panelState,
             onNewInstance: {
-                let recentDirs = RecentProjectsStore.recentProjects
-                if let firstDir = recentDirs.first {
-                    ITermIntegration.launchNewInstance(in: firstDir)
-                } else {
-                    let panel = NSOpenPanel()
-                    panel.canChooseDirectories = true
-                    panel.canChooseFiles = false
-                    panel.allowsMultipleSelection = false
-                    panel.message = "Choose a directory for the new Claude instance"
-                    if panel.runModal() == .OK, let url = panel.url {
-                        ITermIntegration.launchNewInstance(in: url.path)
-                    }
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = false
+                panel.allowsMultipleSelection = false
+                panel.message = "Choose a directory for the new Claude instance"
+                if let recentDir = RecentProjectsStore.recentProjects.first {
+                    panel.directoryURL = URL(fileURLWithPath: recentDir)
+                }
+                if panel.runModal() == .OK, let url = panel.url {
+                    ITermIntegration.launchNewInstance(in: url.path)
                 }
             },
             onSelectInstance: { instance in
