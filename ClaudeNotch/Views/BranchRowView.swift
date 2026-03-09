@@ -35,7 +35,7 @@ struct BranchRowView: View {
                 }
 
                 Circle()
-                    .fill(instance.status.color)
+                    .fill(instance.needsAttention ? NotchTokens.Status.attention : instance.status.color)
                     .frame(width: 5, height: 5)
             }
 
