@@ -3,15 +3,26 @@ import Foundation
 
 @MainActor
 final class TerminalFocusMonitor {
+    private static let iTermBundleId = "com.googlecode.iterm2"
+
     private let instanceManager: InstanceManager
-    private var pollTask: Task<Void, Never>?
+    nonisolated(unsafe) private var pollTask: Task<Void, Never>?
     private var isITermFocused = false
+    private var isStarted = false
 
     init(instanceManager: InstanceManager) {
         self.instanceManager = instanceManager
     }
 
+    deinit {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        pollTask?.cancel()
+    }
+
     func start() {
+        guard !isStarted else { return }
+        isStarted = true
+
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(
             self,
@@ -28,7 +39,7 @@ final class TerminalFocusMonitor {
 
         // Check if iTerm is already frontmost
         if let frontApp = NSWorkspace.shared.frontmostApplication,
-           frontApp.bundleIdentifier == "com.googlecode.iterm2" {
+           frontApp.bundleIdentifier == Self.iTermBundleId {
             isITermFocused = true
             startPolling()
         }
@@ -43,14 +54,14 @@ final class TerminalFocusMonitor {
 
     @objc private func appDidActivate(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == "com.googlecode.iterm2" else { return }
+              app.bundleIdentifier == Self.iTermBundleId else { return }
         isITermFocused = true
         startPolling()
     }
 
     @objc private func appDidDeactivate(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.bundleIdentifier == "com.googlecode.iterm2" else { return }
+              app.bundleIdentifier == Self.iTermBundleId else { return }
         isITermFocused = false
         stopPolling()
     }
@@ -73,26 +84,35 @@ final class TerminalFocusMonitor {
         pollTask = nil
     }
 
-    private func checkActiveSession() {
-        guard isITermFocused else { return }
+    private func checkActiveSession() async {
+        guard isITermFocused, ITermIntegration.isITermRunning() else {
+            if isITermFocused {
+                isITermFocused = false
+                stopPolling()
+            }
+            return
+        }
 
         let attentionInstances = instanceManager.needsAttentionInstances
         guard !attentionInstances.isEmpty else { return }
 
-        // Get active TTY off the main thread via AppleScript
-        guard let activeTTY = ITermIntegration.activeSessionTTY() else { return }
+        let instanceData = attentionInstances.map { (id: $0.id, tty: $0.tty, pid: $0.pid) }
 
-        for instance in attentionInstances {
-            let instanceTTY: String?
-            if let tty = instance.tty {
-                instanceTTY = tty
-            } else {
-                instanceTTY = ITermIntegration.lookupTTY(forPID: instance.pid)
+        // Query iTerm for the TTY of its currently active session off the main thread
+        let matchedIds = await Task.detached {
+            guard let activeTTY = ITermIntegration.activeSessionTTY() else { return [String]() }
+            var matched: [String] = []
+            for inst in instanceData {
+                let instanceTTY = inst.tty ?? ITermIntegration.lookupTTY(forPID: inst.pid)
+                if let iTTY = instanceTTY, iTTY == activeTTY {
+                    matched.append(inst.id)
+                }
             }
+            return matched
+        }.value
 
-            if let iTTY = instanceTTY, iTTY == activeTTY {
-                instanceManager.clearAttention(for: instance.id)
-            }
+        for id in matchedIds {
+            instanceManager.clearAttention(for: id)
         }
     }
 }

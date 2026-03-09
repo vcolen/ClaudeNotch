@@ -72,3 +72,11 @@ extension InstanceStatus {
         }
     }
 }
+
+// MARK: - ClaudeInstance Display Color
+
+extension ClaudeInstance {
+    var displayColor: Color {
+        needsAttention ? NotchTokens.Status.attention : status.color
+    }
+}

@@ -18,7 +18,7 @@ final class InstanceManager {
 
     var workingInstances: [ClaudeInstance] {
         instances.values
-            .filter { $0.status == .working }
+            .filter { $0.status == .working && !$0.needsAttention }
             .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
     }
 
@@ -85,15 +85,15 @@ final class InstanceManager {
     }
 
     var activeCount: Int {
-        instances.values.filter { $0.status == .working }.count
+        instances.values.filter { $0.status == .working && !$0.needsAttention }.count
     }
 
     var waitingCount: Int {
-        instances.values.filter { $0.status == .waitingInput }.count
+        instances.values.filter { $0.status == .waitingInput && !$0.needsAttention }.count
     }
 
     var idleCount: Int {
-        instances.values.filter { $0.status == .idle }.count
+        instances.values.filter { $0.status == .idle && !$0.needsAttention }.count
     }
 
     var needsAttentionCount: Int {
@@ -104,6 +104,16 @@ final class InstanceManager {
 
     func clearAttention(for sessionId: String) {
         instances[sessionId]?.needsAttention = false
+    }
+
+    private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
+        let previousStatus = instance.status
+        instance.status = newStatus
+        if previousStatus == .working && newStatus != .working {
+            instance.needsAttention = true
+        } else if newStatus == .working {
+            instance.needsAttention = false
+        }
     }
 
     init(skipBootstrap: Bool = false) {
@@ -145,14 +155,8 @@ final class InstanceManager {
             let status: InstanceStatus = inst.status == "active" ? .working : .idle
 
             if let existing = instances[sessionId] {
-                let previousStatus = existing.status
                 if existing.status != status {
-                    existing.status = status
-                    if previousStatus == .working && status != .working {
-                        existing.needsAttention = true
-                    } else if status == .working {
-                        existing.needsAttention = false
-                    }
+                    applyStatusTransition(on: existing, newStatus: status)
                 }
                 if existing.pid != inst.pid {
                     existing.pid = inst.pid
@@ -207,17 +211,9 @@ final class InstanceManager {
         }
 
         if let existing = instances[event.sessionId] {
-            let previousStatus = existing.status
-            existing.status = mappedStatus
+            applyStatusTransition(on: existing, newStatus: mappedStatus)
             existing.updatedAt = Date()
             existing.pid = event.pid
-
-            // Transition detection
-            if previousStatus == .working && mappedStatus != .working {
-                existing.needsAttention = true
-            } else if mappedStatus == .working {
-                existing.needsAttention = false
-            }
 
             if existing.cwd != event.cwd {
                 existing.cwd = event.cwd
