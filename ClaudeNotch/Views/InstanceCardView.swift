@@ -109,7 +109,7 @@ struct InstanceCardView: View {
     }
 
     private var badgeColor: Color {
-        instance.needsAttention ? NotchTokens.Status.attention : instance.status.color
+        instance.displayColor
     }
 
     private var statusBadge: some View {

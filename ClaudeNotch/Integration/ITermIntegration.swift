@@ -103,7 +103,10 @@ enum ITermIntegration {
 
         var error: NSDictionary?
         let script = NSAppleScript(source: source)
-        guard let result = script?.executeAndReturnError(&error) else { return nil }
+        guard let result = script?.executeAndReturnError(&error) else {
+            if let error { NSLog("AppleScript error in activeSessionTTY: \(error)") }
+            return nil
+        }
         let tty = result.stringValue ?? ""
         guard !tty.isEmpty else { return nil }
         return sanitizeTTY(tty)
@@ -111,7 +114,7 @@ enum ITermIntegration {
 
     // MARK: - Helpers
 
-    private static func isITermRunning() -> Bool {
+    static func isITermRunning() -> Bool {
         NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.googlecode.iterm2"
         ).isEmpty == false

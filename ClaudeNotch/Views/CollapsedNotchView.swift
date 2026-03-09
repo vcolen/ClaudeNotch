@@ -62,13 +62,9 @@ struct CollapsedNotchView: View {
     }
 
     private var dotInfos: [DotInfo] {
-        let sorted = instanceManager.sortedInstances
-        // Attention dots first, then working, waiting, idle
-        let attention = sorted.filter { $0.needsAttention }.map { DotInfo(status: $0.status, isAttention: true) }
-        let working = sorted.filter { $0.status == .working }.map { DotInfo(status: $0.status, isAttention: false) }
-        let waiting = sorted.filter { $0.status == .waitingInput && !$0.needsAttention }.map { DotInfo(status: $0.status, isAttention: false) }
-        let idle = sorted.filter { $0.status == .idle && !$0.needsAttention }.map { DotInfo(status: $0.status, isAttention: false) }
-        return attention + working + waiting + idle
+        instanceManager.sortedInstances.map {
+            DotInfo(status: $0.status, isAttention: $0.needsAttention)
+        }
     }
 
     // MARK: - Layout Calculation (static, shared with PanelState)
