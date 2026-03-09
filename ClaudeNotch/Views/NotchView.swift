@@ -118,11 +118,12 @@ struct NotchView: View {
     }
 
     private func updateContentHeight() {
-        let allGroups = instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
+        let allGroups = instanceManager.needsAttentionGroups + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
         var height: CGFloat = 50 // chrome (button + separator)
 
         // Section headers (~28pt each)
         var sectionCount = 0
+        if !instanceManager.needsAttentionGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.workingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.waitingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.idleGroups.isEmpty { sectionCount += 1 }

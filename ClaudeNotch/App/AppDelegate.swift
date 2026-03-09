@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var instanceManager: InstanceManager!
     private var screenObserver: ScreenObserver!
     private var socketListener: SocketListener!
+    private var terminalFocusMonitor: TerminalFocusMonitor!
     private var statusItem: NSStatusItem!
 
     // MARK: - Lifecycle
@@ -25,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         socketListener.start()
+
+        terminalFocusMonitor = TerminalFocusMonitor(instanceManager: instanceManager)
+        terminalFocusMonitor.start()
 
         setupStatusItem()
         installSignalHandlers()
@@ -114,6 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cleanup() {
         socketListener?.stop()
         screenObserver?.tearDown()
+        terminalFocusMonitor?.stop()
         instanceManager?.cleanup()
     }
 }

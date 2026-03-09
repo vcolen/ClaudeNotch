@@ -124,15 +124,13 @@ struct InstanceManagerTests {
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
             status: "processing", tty: nil, tool: nil
         ))
-        // Manually set earlier date on first instance
-        manager.instances["s1"]?.updatedAt = Date.distantPast
         manager.handleSocketEvent(.init(
             sessionId: "s2", pid: 101, cwd: "/tmp/b",
             status: "waiting_for_input", tty: nil, tool: nil
         ))
         let sorted = manager.sortedInstances
         #expect(sorted.count == 2)
-        #expect(sorted.first?.id == "s2") // Most recent first
+        #expect(sorted.first?.id == "s1") // Working instances come first
     }
 
     // MARK: - Project Grouping

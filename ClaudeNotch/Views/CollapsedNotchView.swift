@@ -46,27 +46,29 @@ struct CollapsedNotchView: View {
     }
 
     private var dotGrid: some View {
-        let dots = statusDots
+        let dots = dotInfos
         let perRow = Self.dotsPerRow(maxWidth: maxWidth)
         let rows = Self.makeRows(dots: dots, perRow: perRow)
 
         return VStack(spacing: Self.rowSpacing) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: Self.dotSpacing) {
-                    ForEach(Array(row.enumerated()), id: \.offset) { _, status in
-                        StatusDot(status: status, isVisible: true)
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, info in
+                        StatusDot(status: info.status, isVisible: true, isAttention: info.isAttention)
                     }
                 }
             }
         }
     }
 
-    private var statusDots: [InstanceStatus] {
+    private var dotInfos: [DotInfo] {
         let sorted = instanceManager.sortedInstances
-        let working = sorted.filter { $0.status == .working }.map(\.status)
-        let waiting = sorted.filter { $0.status == .waitingInput }.map(\.status)
-        let idle = sorted.filter { $0.status == .idle }.map(\.status)
-        return working + waiting + idle
+        // Attention dots first, then working, waiting, idle
+        let attention = sorted.filter { $0.needsAttention }.map { DotInfo(status: $0.status, isAttention: true) }
+        let working = sorted.filter { $0.status == .working }.map { DotInfo(status: $0.status, isAttention: false) }
+        let waiting = sorted.filter { $0.status == .waitingInput && !$0.needsAttention }.map { DotInfo(status: $0.status, isAttention: false) }
+        let idle = sorted.filter { $0.status == .idle && !$0.needsAttention }.map { DotInfo(status: $0.status, isAttention: false) }
+        return attention + working + waiting + idle
     }
 
     // MARK: - Layout Calculation (static, shared with PanelState)
@@ -85,8 +87,8 @@ struct CollapsedNotchView: View {
         return CGFloat(rowCount) * dotSize + CGFloat(max(0, rowCount - 1)) * rowSpacing + pillVPad * 2
     }
 
-    static func makeRows(dots: [InstanceStatus], perRow: Int) -> [[InstanceStatus]] {
-        var rows: [[InstanceStatus]] = []
+    static func makeRows(dots: [DotInfo], perRow: Int) -> [[DotInfo]] {
+        var rows: [[DotInfo]] = []
         var i = 0
         while i < dots.count {
             let end = min(i + perRow, dots.count)
@@ -95,6 +97,11 @@ struct CollapsedNotchView: View {
         }
         return rows
     }
+}
+
+struct DotInfo {
+    let status: InstanceStatus
+    let isAttention: Bool
 }
 
 #Preview {

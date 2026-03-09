@@ -30,6 +30,7 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var lastTool: String?
     var branchName: String?
     var remoteURL: String?
+    var needsAttention: Bool = false
 
     init(
         id: String,
