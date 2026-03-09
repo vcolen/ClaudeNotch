@@ -3,10 +3,6 @@ import SwiftUI
 struct CollapsedNotchView: View {
     let instanceManager: InstanceManager
 
-    private var hasWorkingInstances: Bool {
-        instanceManager.instances.values.contains { $0.status == .working }
-    }
-
     var body: some View {
         HStack(spacing: 5) {
             if instanceManager.instances.isEmpty {
@@ -40,10 +36,6 @@ struct CollapsedNotchView: View {
         }
         .padding(.horizontal, 10)
         .frame(minWidth: 30)
-        .shadow(
-            color: hasWorkingInstances ? NotchTokens.Status.working.opacity(0.3) : .clear,
-            radius: 8
-        )
     }
 
     private var statusDots: [InstanceStatus] {

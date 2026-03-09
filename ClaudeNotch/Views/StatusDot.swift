@@ -10,8 +10,8 @@ struct StatusDot: View {
         Circle()
             .fill(status.color)
             .frame(width: 7, height: 7)
-            .shadow(color: status == .working ? status.color.opacity(0.6) : .clear, radius: 6)
-            .shadow(color: status == .waitingInput ? status.color.opacity(0.3) : .clear, radius: 2)
+            .shadow(color: status == .working ? status.color.opacity(0.5) : .clear, radius: 3)
+            .shadow(color: status == .waitingInput ? status.color.opacity(0.25) : .clear, radius: 2)
             .scaleEffect(isPulsing && status == .working && isVisible ? 1.12 : 1.0)
             .opacity(isPulsing && status == .working && isVisible ? 0.85 : 1.0)
             .animation(

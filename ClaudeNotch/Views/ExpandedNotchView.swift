@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ExpandedNotchView: View {
     let instanceManager: InstanceManager
-    let panelState: PanelState
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
@@ -22,14 +21,10 @@ struct ExpandedNotchView: View {
             newInstanceButton
         }
         .frame(maxWidth: .infinity)
-        .onChange(of: panelState.isExpanded) { _, expanded in
-            if expanded {
-                isRevealed = false
-                withAnimation(NotchTokens.Animation.contentReveal) {
-                    isRevealed = true
-                }
-            } else {
-                isRevealed = false
+        .onAppear {
+            isRevealed = false
+            withAnimation(NotchTokens.Animation.contentReveal) {
+                isRevealed = true
             }
         }
     }
@@ -122,8 +117,7 @@ struct ExpandedNotchView: View {
 
 #Preview {
     ExpandedNotchView(
-        instanceManager: InstanceManager(),
-        panelState: PanelState(hasNotch: true, notchHeight: 37)
+        instanceManager: InstanceManager()
     )
     .frame(width: 340)
     .background(Color.black)

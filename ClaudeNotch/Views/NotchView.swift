@@ -9,7 +9,7 @@ struct NotchView: View {
     @State private var dismissTask: Task<Void, Never>?
 
     private var notchShape: NotchShape {
-        NotchShape(bottomRadius: panelState.isExpanded ? 14 : 12)
+        NotchShape(bottomRadius: panelState.isExpanded ? 14 : 8)
     }
 
     var body: some View {
@@ -39,9 +39,9 @@ struct NotchView: View {
         .frame(width: panelState.isExpanded ? 340 : nil)
         .background(
             ZStack {
-                // Layer 1: Dark base
+                // Layer 1: Solid black base — matches physical notch perfectly when collapsed
                 notchShape
-                    .fill(Color.black.opacity(0.85))
+                    .fill(Color.black)
 
                 // Layer 2: Glass material (only when expanded on notch screens)
                 if panelState.isExpanded && panelState.hasNotch {
@@ -49,21 +49,27 @@ struct NotchView: View {
                         .fill(.ultraThinMaterial)
                 }
 
-                // Layer 3: Edge highlight
-                notchShape
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.2), Color.white.opacity(0.03)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
-                    .drawingGroup()
+                // Layer 3: Edge highlight (only when expanded)
+                if panelState.isExpanded {
+                    notchShape
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.15), Color.white.opacity(0.03)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                        .drawingGroup()
+                }
             }
         )
         .clipShape(notchShape)
-        .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+        .shadow(
+            color: panelState.isExpanded ? .black.opacity(0.4) : .clear,
+            radius: panelState.isExpanded ? 8 : 0,
+            y: panelState.isExpanded ? 4 : 0
+        )
         .onHover { hovering in
             if hovering {
                 dismissTask?.cancel()
@@ -89,7 +95,6 @@ struct NotchView: View {
     private var expandedContent: some View {
         ExpandedNotchView(
             instanceManager: instanceManager,
-            panelState: panelState,
             onNewInstance: onNewInstance,
             onSelectInstance: onSelectInstance
         )

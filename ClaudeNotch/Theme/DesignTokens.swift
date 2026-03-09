@@ -17,7 +17,7 @@ enum NotchTokens {
     }
 
     enum Size {
-        static let collapsedHeight: CGFloat = 14
+        static let collapsedHeight: CGFloat = 10
         static let cardCornerRadius: CGFloat = 10
         static let contextBarHeight: CGFloat = 3.5
     }

@@ -8,7 +8,6 @@ final class NotchPanelController {
     let panelState: PanelState
     let instanceManager: InstanceManager
 
-    private let collapsedWidth: CGFloat = 220
     private let expandedWidth: CGFloat = 340
     private let hoverZoneHeight: CGFloat = 6
 
@@ -20,14 +19,29 @@ final class NotchPanelController {
 
         let hasNotch = screen.safeAreaInsets.top > 0
         let notchHeight = screen.safeAreaInsets.top
-        self.panelState = PanelState(hasNotch: hasNotch, notchHeight: notchHeight)
+
+        // Calculate actual notch width from auxiliary top areas
+        let notchWidth: CGFloat
+        if hasNotch,
+           let leftArea = screen.auxiliaryTopLeftArea,
+           let rightArea = screen.auxiliaryTopRightArea {
+            notchWidth = rightArea.minX - leftArea.maxX
+        } else {
+            notchWidth = 220
+        }
+
+        self.panelState = PanelState(
+            hasNotch: hasNotch,
+            notchHeight: notchHeight,
+            notchWidth: notchWidth
+        )
 
         let initialFrame = Self.computeFrame(
             screen: screen,
             expanded: false,
             hasNotch: hasNotch,
             notchHeight: notchHeight,
-            collapsedWidth: collapsedWidth,
+            collapsedWidth: notchWidth,
             expandedWidth: expandedWidth,
             hoverZoneHeight: hoverZoneHeight,
             contentHeight: panelState.contentHeight
@@ -85,12 +99,13 @@ final class NotchPanelController {
             expanded: panelState.isExpanded,
             hasNotch: panelState.hasNotch,
             notchHeight: panelState.notchHeight,
-            collapsedWidth: collapsedWidth,
+            collapsedWidth: panelState.notchWidth,
             expandedWidth: expandedWidth,
             hoverZoneHeight: hoverZoneHeight,
             contentHeight: panelState.contentHeight
         )
         panel.setFrame(frame, display: true, animate: panelState.isExpanded)
+        panel.hasShadow = panelState.isExpanded
     }
 
     private static func computeFrame(
@@ -108,13 +123,10 @@ final class NotchPanelController {
         let x = screenFrame.midX - width / 2
 
         if hasNotch {
-            // Panel extends from screen top (behind notch) downward.
-            // Total height = notch area + visible content below notch.
             let totalHeight = notchHeight + contentHeight
             let y = screenFrame.maxY - totalHeight
             return NSRect(x: x, y: y, width: width, height: totalHeight)
         } else {
-            // External display: thin hover zone at top
             let height = expanded ? contentHeight : hoverZoneHeight
             let y = screenFrame.maxY - height
             return NSRect(x: x, y: y, width: width, height: height)

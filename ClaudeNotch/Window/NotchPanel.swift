@@ -14,7 +14,7 @@ final class NotchPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        hasShadow = false
     }
 
     override var canBecomeKey: Bool { true }
