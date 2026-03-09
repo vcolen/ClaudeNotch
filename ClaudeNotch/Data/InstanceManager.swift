@@ -10,10 +10,31 @@ final class InstanceManager {
 
     private var staleSweepTask: Task<Void, Never>?
     private var costPollTask: Task<Void, Never>?
+    private var stateFilePollTask: Task<Void, Never>?
     private let costReader = CostReader()
 
+    private static let stateFilePath = "/tmp/screen-blocker/state.json"
+
+    var workingInstances: [ClaudeInstance] {
+        instances.values
+            .filter { $0.status == .working }
+            .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
+    }
+
+    var waitingInstances: [ClaudeInstance] {
+        instances.values
+            .filter { $0.status == .waitingInput }
+            .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
+    }
+
+    var idleInstances: [ClaudeInstance] {
+        instances.values
+            .filter { $0.status == .idle }
+            .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
+    }
+
     var sortedInstances: [ClaudeInstance] {
-        instances.values.sorted { $0.updatedAt > $1.updatedAt }
+        workingInstances + waitingInstances + idleInstances
     }
 
     var activeCount: Int {
@@ -30,38 +51,74 @@ final class InstanceManager {
 
     init(skipBootstrap: Bool = false) {
         if !skipBootstrap {
-            bootstrapFromStateFile()
+            syncFromStateFile()
         }
         startStalePIDSweep()
+        startStateFilePolling()
     }
 
     func cleanup() {
         staleSweepTask?.cancel()
         costPollTask?.cancel()
+        stateFilePollTask?.cancel()
     }
 
-    // MARK: - Bootstrap
+    // MARK: - State File Sync
 
-    private func bootstrapFromStateFile() {
-        let stateFilePath = "/tmp/screen-blocker/state.json"
-        guard let data = FileManager.default.contents(atPath: stateFilePath) else { return }
-
-        struct StateFile: Decodable {
-            struct Instance: Decodable {
-                let status: String
-                let pid: Int
-                let cwd: String
-            }
-            let instances: [String: Instance]
+    private struct StateFile: Decodable {
+        struct Instance: Decodable {
+            let status: String
+            let pid: Int
+            let cwd: String
         }
+        let instances: [String: Instance]
+    }
 
+    private func syncFromStateFile() {
+        guard let data = FileManager.default.contents(atPath: Self.stateFilePath) else { return }
         guard let stateFile = try? JSONDecoder().decode(StateFile.self, from: data) else { return }
+
+        // Track which sessions are in the file
+        var fileSessionIds = Set<String>()
 
         for (sessionId, inst) in stateFile.instances {
             guard isProcessAlive(pid: inst.pid) else { continue }
+            fileSessionIds.insert(sessionId)
+
             let status: InstanceStatus = inst.status == "active" ? .working : .idle
-            let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
-            instances[sessionId] = instance
+
+            if let existing = instances[sessionId] {
+                if existing.status != status {
+                    existing.status = status
+                }
+                if existing.pid != inst.pid {
+                    existing.pid = inst.pid
+                }
+                if existing.cwd != inst.cwd {
+                    existing.cwd = inst.cwd
+                    existing.projectName = (inst.cwd as NSString).lastPathComponent
+                }
+            } else {
+                // New instance
+                let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
+                instances[sessionId] = instance
+            }
+        }
+
+        // Remove instances that are no longer in the state file
+        let removedIds = Set(instances.keys).subtracting(fileSessionIds)
+        for id in removedIds {
+            instances.removeValue(forKey: id)
+        }
+    }
+
+    private func startStateFilePolling() {
+        stateFilePollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { break }
+                self?.syncFromStateFile()
+            }
         }
     }
 
@@ -142,13 +199,11 @@ final class InstanceManager {
     }
 
     private nonisolated func isProcessAlive(pid: Int) -> Bool {
-        // Check if process exists
         guard kill(Int32(pid), 0) == 0 else { return false }
 
-        // Verify it's a claude process using proc_pidpath
         var pathBuffer = [CChar](repeating: 0, count: 4096)
         let pathLength = proc_pidpath(Int32(pid), &pathBuffer, UInt32(pathBuffer.count))
-        guard pathLength > 0 else { return true } // If we can't check path, assume alive
+        guard pathLength > 0 else { return true }
 
         let path = String(cString: pathBuffer)
         return path.contains("claude") || path.contains("node")

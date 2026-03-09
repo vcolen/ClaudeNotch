@@ -32,18 +32,37 @@ struct ExpandedNotchView: View {
     private var instanceList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                let instances = instanceManager.sortedInstances
-                ForEach(Array(instances.enumerated()), id: \.element.id) { index, instance in
-                    InstanceCardView(instance: instance) { selected in
-                        onSelectInstance?(selected)
+                let working = instanceManager.workingInstances
+                let waiting = instanceManager.waitingInstances
+                let idle = instanceManager.idleInstances
+                let totalCount = working.count + waiting.count + idle.count
+                var runningIndex = 0
+
+                if !working.isEmpty {
+                    sectionHeader("Running", color: NotchTokens.Status.working)
+                    ForEach(working) { instance in
+                        let idx = runningIndex
+                        let _ = (runningIndex += 1)
+                        cardView(instance: instance, index: idx, total: totalCount)
                     }
-                    .opacity(isRevealed ? 1 : 0)
-                    .offset(y: isRevealed ? 0 : -6)
-                    .animation(
-                        .easeOut(duration: 0.25)
-                            .delay(NotchTokens.Animation.staggerDelay(index: index, total: instances.count)),
-                        value: isRevealed
-                    )
+                }
+
+                if !waiting.isEmpty {
+                    sectionHeader("Awaiting Input", color: NotchTokens.Status.waiting)
+                    ForEach(waiting) { instance in
+                        let idx = runningIndex
+                        let _ = (runningIndex += 1)
+                        cardView(instance: instance, index: idx, total: totalCount)
+                    }
+                }
+
+                if !idle.isEmpty {
+                    sectionHeader("Idle", color: NotchTokens.Status.idle)
+                    ForEach(idle) { instance in
+                        let idx = runningIndex
+                        let _ = (runningIndex += 1)
+                        cardView(instance: instance, index: idx, total: totalCount)
+                    }
                 }
             }
             .padding(.horizontal, 8)
@@ -51,6 +70,35 @@ struct ExpandedNotchView: View {
             .padding(.bottom, 4)
         }
         .frame(maxHeight: 380)
+    }
+
+    private func sectionHeader(_ title: String, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 4, height: 4)
+            Text(title)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+                .textCase(.uppercase)
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
+    private func cardView(instance: ClaudeInstance, index: Int, total: Int) -> some View {
+        InstanceCardView(instance: instance) { selected in
+            onSelectInstance?(selected)
+        }
+        .opacity(isRevealed ? 1 : 0)
+        .offset(y: isRevealed ? 0 : -6)
+        .animation(
+            .easeOut(duration: 0.25)
+                .delay(NotchTokens.Animation.staggerDelay(index: index, total: total)),
+            value: isRevealed
+        )
     }
 
     private var emptyState: some View {
