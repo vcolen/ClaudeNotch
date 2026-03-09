@@ -26,6 +26,21 @@ enum NotchTokens {
         static let contextBarHeight: CGFloat = 3.5
     }
 
+    enum ProjectGroup {
+        static let containerBackground = Color.white.opacity(0.03)
+        static let containerCornerRadius: CGFloat = 8
+        static let headerFont = Font.system(size: 12, weight: .semibold)
+        static let countBadgeFont = Font.system(size: 9, design: .monospaced)
+        static let countBadgeColor = Color.white.opacity(0.3)
+    }
+
+    enum BranchRow {
+        static let branchFont = Font.system(size: 11, weight: .regular)
+        static let metaFont = Font.system(size: 10)
+        static let verticalPadding: CGFloat = 4
+        static let contextBarHeight: CGFloat = 2.5
+    }
+
     enum Animation {
         static let expandSpring = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.78)
         static let hoverQuick = SwiftUI.Animation.easeOut(duration: 0.12)

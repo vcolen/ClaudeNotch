@@ -38,6 +38,42 @@ final class InstanceManager {
         workingInstances + waitingInstances + idleInstances
     }
 
+    // MARK: - Grouped by Project
+
+    var workingGroups: [ProjectGroup] {
+        groupByProject(workingInstances)
+    }
+
+    var waitingGroups: [ProjectGroup] {
+        groupByProject(waitingInstances)
+    }
+
+    var idleGroups: [ProjectGroup] {
+        groupByProject(idleInstances)
+    }
+
+    private func groupByProject(_ instances: [ClaudeInstance]) -> [ProjectGroup] {
+        let grouped = Dictionary(grouping: instances) { $0.remoteURL ?? $0.projectName }
+        return grouped
+            .map { key, groupInstances in
+                let displayName: String
+                if let remoteURL = groupInstances.first?.remoteURL,
+                   let repoName = GitBranchReader.repoName(from: remoteURL) {
+                    displayName = repoName
+                } else {
+                    displayName = groupInstances.first?.projectName ?? key
+                }
+                return ProjectGroup(
+                    groupKey: key,
+                    displayName: displayName,
+                    instances: groupInstances.sorted {
+                        ($0.branchName ?? "").localizedCompare($1.branchName ?? "") == .orderedAscending
+                    }
+                )
+            }
+            .sorted { $0.displayName.localizedCompare($1.displayName) == .orderedAscending }
+    }
+
     var activeCount: Int {
         instances.values.filter { $0.status == .working }.count
     }
@@ -104,6 +140,7 @@ final class InstanceManager {
                 // New instance
                 let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
                 instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
+                instance.remoteURL = branchReader.readRemoteURL(forDirectory: inst.cwd)
                 instances[sessionId] = instance
             }
         }
@@ -152,6 +189,7 @@ final class InstanceManager {
                 existing.cwd = event.cwd
                 existing.projectName = (event.cwd as NSString).lastPathComponent
                 existing.branchName = branchReader.readBranch(forDirectory: event.cwd)
+                existing.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
             }
             if let tty = event.tty {
                 existing.tty = tty
@@ -168,6 +206,7 @@ final class InstanceManager {
                 tty: event.tty
             )
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
+            instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
             if let tool = event.tool {
                 instance.lastTool = tool
             }
@@ -243,6 +282,9 @@ final class InstanceManager {
                 instance.contextUsagePercent = costInfo.contextPercent
             }
             instance.branchName = branchReader.readBranch(forDirectory: instance.cwd)
+            if instance.remoteURL == nil {
+                instance.remoteURL = branchReader.readRemoteURL(forDirectory: instance.cwd)
+            }
         }
     }
 }

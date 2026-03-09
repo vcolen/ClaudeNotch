@@ -21,8 +21,14 @@ struct CollapsedNotchView: View {
         .padding(.horizontal, Self.pillHPad)
         .padding(.vertical, Self.pillVPad)
         .background(
-            Capsule()
-                .fill(Color.black)
+            UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: 10,
+                bottomTrailingRadius: 10,
+                topTrailingRadius: 0,
+                style: .continuous
+            )
+            .fill(Color.black)
         )
     }
 

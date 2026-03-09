@@ -29,6 +29,7 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var contextUsagePercent: Double? // 0.0 to 1.0, capped
     var lastTool: String?
     var branchName: String?
+    var remoteURL: String?
 
     init(
         id: String,

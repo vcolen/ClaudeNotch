@@ -8,12 +8,18 @@ struct NotchView: View {
 
     @State private var dismissTask: Task<Void, Never>?
 
-    private var cornerRadius: CGFloat {
+    private var bottomRadius: CGFloat {
         panelState.isExpanded ? 16 : 8
     }
 
-    private var clipShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    private var clipShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 0,
+            bottomLeadingRadius: bottomRadius,
+            bottomTrailingRadius: bottomRadius,
+            topTrailingRadius: 0,
+            style: .continuous
+        )
     }
 
     var body: some View {
@@ -112,14 +118,25 @@ struct NotchView: View {
     }
 
     private func updateContentHeight() {
-        let instanceCount = instanceManager.instances.count
-        let cardHeight: CGFloat = 76
-        let chrome: CGFloat = 50
-        let estimatedHeight = max(
-            120,
-            min(CGFloat(instanceCount) * cardHeight + chrome, 420)
-        )
-        panelState.contentHeight = estimatedHeight
+        let allGroups = instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
+        var height: CGFloat = 50 // chrome (button + separator)
+
+        // Section headers (~28pt each)
+        var sectionCount = 0
+        if !instanceManager.workingGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.waitingGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.idleGroups.isEmpty { sectionCount += 1 }
+        height += CGFloat(sectionCount) * 28
+
+        for group in allGroups {
+            if group.isSingle {
+                height += 68 // single card height
+            } else {
+                height += 28 + CGFloat(group.count) * 40 + 8 // header + rows + padding
+            }
+        }
+
+        panelState.contentHeight = max(120, min(height, 420))
     }
 }
 

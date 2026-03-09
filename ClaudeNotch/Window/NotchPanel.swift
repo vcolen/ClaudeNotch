@@ -38,5 +38,6 @@ final class NotchPanel: NSPanel {
 
     func updateCornerRadius(_ radius: CGFloat) {
         hostingLayer?.cornerRadius = radius
+        hostingLayer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
     }
 }

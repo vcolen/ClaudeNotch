@@ -135,6 +135,115 @@ struct InstanceManagerTests {
         #expect(sorted.first?.id == "s2") // Most recent first
     }
 
+    // MARK: - Project Grouping
+
+    @Test("Same project instances are grouped into one ProjectGroup")
+    func sameProjectGrouped() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/myproject",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s1"]?.branchName = "main"
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/myproject",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s2"]?.branchName = "feature/a"
+        manager.handleSocketEvent(.init(
+            sessionId: "s3", pid: 102, cwd: "/tmp/myproject",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s3"]?.branchName = "feature/b"
+
+        let groups = manager.idleGroups
+        #expect(groups.count == 1)
+        #expect(groups[0].count == 3)
+        #expect(groups[0].displayName == "myproject")
+    }
+
+    @Test("Different projects produce separate groups sorted alphabetically")
+    func differentProjectsSortedAlphabetically() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/zebra",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/alpha",
+            status: "unknown", tty: nil, tool: nil
+        ))
+
+        let groups = manager.idleGroups
+        #expect(groups.count == 2)
+        #expect(groups[0].displayName == "alpha")
+        #expect(groups[1].displayName == "zebra")
+    }
+
+    @Test("Single-instance project has isSingle true")
+    func singleInstanceGroupIsSingle() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/solo",
+            status: "unknown", tty: nil, tool: nil
+        ))
+
+        let groups = manager.idleGroups
+        #expect(groups.count == 1)
+        #expect(groups[0].isSingle == true)
+    }
+
+    @Test("Instances within a group are sorted by branchName")
+    func instancesSortedByBranch() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s1"]?.branchName = "z-branch"
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s2"]?.branchName = "a-branch"
+
+        let groups = manager.idleGroups
+        #expect(groups.count == 1)
+        #expect(groups[0].instances[0].branchName == "a-branch")
+        #expect(groups[0].instances[1].branchName == "z-branch")
+    }
+
+    @Test("Instances with same remoteURL but different cwds are grouped together")
+    func remoteURLGrouping() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project-worktree1",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s1"]?.remoteURL = "git@github.com:user/my-repo.git"
+        manager.instances["s1"]?.branchName = "main"
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/project-worktree2",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.instances["s2"]?.remoteURL = "git@github.com:user/my-repo.git"
+        manager.instances["s2"]?.branchName = "feature"
+
+        let groups = manager.idleGroups
+        #expect(groups.count == 1)
+        #expect(groups[0].count == 2)
+        #expect(groups[0].displayName == "my-repo")
+    }
+
+    @Test("repoName extracts name from SSH and HTTPS URLs")
+    func repoNameExtraction() {
+        #expect(GitBranchReader.repoName(from: "git@github.com:user/my-repo.git") == "my-repo")
+        #expect(GitBranchReader.repoName(from: "https://github.com/user/my-repo.git") == "my-repo")
+        #expect(GitBranchReader.repoName(from: "https://github.com/user/my-repo") == "my-repo")
+    }
+
+    // MARK: - Counts
+
     @Test("Active/waiting/idle counts are correct")
     func countsAreCorrect() {
         let manager = InstanceManager(skipBootstrap: true)

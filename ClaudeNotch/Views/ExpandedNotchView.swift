@@ -32,36 +32,36 @@ struct ExpandedNotchView: View {
     private var instanceList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                let working = instanceManager.workingInstances
-                let waiting = instanceManager.waitingInstances
-                let idle = instanceManager.idleInstances
-                let totalCount = working.count + waiting.count + idle.count
+                let workingGroups = instanceManager.workingGroups
+                let waitingGroups = instanceManager.waitingGroups
+                let idleGroups = instanceManager.idleGroups
+                let totalGroups = workingGroups.count + waitingGroups.count + idleGroups.count
                 var runningIndex = 0
 
-                if !working.isEmpty {
+                if !workingGroups.isEmpty {
                     sectionHeader("Running", color: NotchTokens.Status.working)
-                    ForEach(working) { instance in
+                    ForEach(workingGroups) { group in
                         let idx = runningIndex
                         let _ = (runningIndex += 1)
-                        cardView(instance: instance, index: idx, total: totalCount)
+                        groupView(group: group, index: idx, total: totalGroups)
                     }
                 }
 
-                if !waiting.isEmpty {
+                if !waitingGroups.isEmpty {
                     sectionHeader("Awaiting Input", color: NotchTokens.Status.waiting)
-                    ForEach(waiting) { instance in
+                    ForEach(waitingGroups) { group in
                         let idx = runningIndex
                         let _ = (runningIndex += 1)
-                        cardView(instance: instance, index: idx, total: totalCount)
+                        groupView(group: group, index: idx, total: totalGroups)
                     }
                 }
 
-                if !idle.isEmpty {
+                if !idleGroups.isEmpty {
                     sectionHeader("Idle", color: NotchTokens.Status.idle)
-                    ForEach(idle) { instance in
+                    ForEach(idleGroups) { group in
                         let idx = runningIndex
                         let _ = (runningIndex += 1)
-                        cardView(instance: instance, index: idx, total: totalCount)
+                        groupView(group: group, index: idx, total: totalGroups)
                     }
                 }
             }
@@ -88,8 +88,8 @@ struct ExpandedNotchView: View {
         .padding(.bottom, 2)
     }
 
-    private func cardView(instance: ClaudeInstance, index: Int, total: Int) -> some View {
-        InstanceCardView(instance: instance) { selected in
+    private func groupView(group: ProjectGroup, index: Int, total: Int) -> some View {
+        ProjectGroupView(group: group) { selected in
             onSelectInstance?(selected)
         }
         .opacity(isRevealed ? 1 : 0)

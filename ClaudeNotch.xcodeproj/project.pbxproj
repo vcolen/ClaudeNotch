@@ -45,6 +45,10 @@
 		/* GitBranch Sources */
 		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
 		A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000044 /* GitBranchReaderTests.swift */; };
+		/* ProjectGroup Sources */
+		A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000028 /* ProjectGroup.swift */; };
+		A1B2C3D4000000C6 /* BranchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000029 /* BranchRowView.swift */; };
+		A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002A /* ProjectGroupView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +106,10 @@
 		/* GitBranch */
 		A1B2C3D400000027 /* GitBranchReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReader.swift; sourceTree = "<group>"; };
 		A1B2C3D400000044 /* GitBranchReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReaderTests.swift; sourceTree = "<group>"; };
+		/* ProjectGroup */
+		A1B2C3D400000028 /* ProjectGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroup.swift; sourceTree = "<group>"; };
+		A1B2C3D400000029 /* BranchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchRowView.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002A /* ProjectGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroupView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -175,6 +183,7 @@
 				A1B2C3D400000017 /* SocketListener.swift */,
 				A1B2C3D400000018 /* CostReader.swift */,
 				A1B2C3D400000027 /* GitBranchReader.swift */,
+				A1B2C3D400000028 /* ProjectGroup.swift */,
 				A1B2C3D400000019 /* PanelState.swift */,
 			);
 			path = Data;
@@ -187,6 +196,8 @@
 				A1B2C3D40000001B /* CollapsedNotchView.swift */,
 				A1B2C3D40000001C /* ExpandedNotchView.swift */,
 				A1B2C3D40000001D /* InstanceCardView.swift */,
+				A1B2C3D400000029 /* BranchRowView.swift */,
+				A1B2C3D40000002A /* ProjectGroupView.swift */,
 				A1B2C3D40000001E /* StatusDot.swift */,
 				A1B2C3D40000001F /* ContextUsageBar.swift */,
 				A1B2C3D400000020 /* NotchShape.swift */,
@@ -364,6 +375,9 @@
 				A1B2C3D4000000C2 /* RecentProjectsStore.swift in Sources */,
 				A1B2C3D4000000C3 /* DesignTokens.swift in Sources */,
 				A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */,
+				A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */,
+				A1B2C3D4000000C6 /* BranchRowView.swift in Sources */,
+				A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
