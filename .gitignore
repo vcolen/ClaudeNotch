@@ -1,0 +1,15 @@
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+build/
+
+# Profiling
+*.profraw
+*.profdata
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# macOS
+.DS_Store
