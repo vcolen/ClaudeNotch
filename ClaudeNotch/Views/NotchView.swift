@@ -8,50 +8,41 @@ struct NotchView: View {
 
     @State private var dismissTask: Task<Void, Never>?
 
-    private var notchShape: NotchShape {
-        NotchShape(bottomRadius: panelState.isExpanded ? 14 : 8)
+    private var cornerRadius: CGFloat {
+        panelState.isExpanded ? 16 : 8
+    }
+
+    private var clipShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Invisible spacer that sits behind the physical notch
             if panelState.hasNotch {
                 Color.clear
                     .frame(height: panelState.notchHeight)
             }
 
-            // Visible content below the notch
             if panelState.isExpanded {
                 expandedContent
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.95, anchor: .top)
-                                .combined(with: .offset(y: -8))
-                                .combined(with: .opacity),
-                            removal: .opacity.combined(with: .offset(y: -4))
-                        )
-                    )
+                    .transition(.opacity)
             } else {
                 collapsedContent
                     .transition(.opacity)
             }
         }
-        .frame(width: panelState.isExpanded ? 340 : nil)
+        .frame(maxWidth: .infinity)
         .background(
             ZStack {
-                // Layer 1: Solid black base — matches physical notch perfectly when collapsed
-                notchShape
-                    .fill(Color.black)
+                // Rounded black background — NOT a rectangular fill
+                clipShape.fill(Color.black)
 
-                // Layer 2: Glass material (only when expanded on notch screens)
                 if panelState.isExpanded && panelState.hasNotch {
-                    notchShape
-                        .fill(.ultraThinMaterial)
+                    clipShape.fill(.ultraThinMaterial)
                 }
 
-                // Layer 3: Edge highlight (only when expanded)
                 if panelState.isExpanded {
-                    notchShape
+                    clipShape
                         .stroke(
                             LinearGradient(
                                 colors: [Color.white.opacity(0.15), Color.white.opacity(0.03)],
@@ -60,11 +51,10 @@ struct NotchView: View {
                             ),
                             lineWidth: 0.5
                         )
-                        .drawingGroup()
                 }
             }
         )
-        .clipShape(notchShape)
+        .clipShape(clipShape)
         .shadow(
             color: panelState.isExpanded ? .black.opacity(0.4) : .clear,
             radius: panelState.isExpanded ? 8 : 0,
@@ -117,7 +107,7 @@ struct NotchView: View {
     private func updateContentHeight() {
         let instanceCount = instanceManager.instances.count
         let cardHeight: CGFloat = 76
-        let chrome: CGFloat = 50 // button + divider + padding
+        let chrome: CGFloat = 50
         let estimatedHeight = max(
             120,
             min(CGFloat(instanceCount) * cardHeight + chrome, 420)

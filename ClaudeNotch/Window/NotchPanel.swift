@@ -21,6 +21,10 @@ final class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func setContent(_ view: some View) {
-        contentView = NSHostingView(rootView: view)
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.wantsLayer = true
+        hostingView.layer?.isOpaque = false
+        hostingView.layer?.backgroundColor = .clear
+        contentView = hostingView
     }
 }

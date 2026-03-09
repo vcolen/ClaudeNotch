@@ -20,7 +20,6 @@ final class NotchPanelController {
         let hasNotch = screen.safeAreaInsets.top > 0
         let notchHeight = screen.safeAreaInsets.top
 
-        // Calculate actual notch width from auxiliary top areas
         let notchWidth: CGFloat
         if hasNotch,
            let leftArea = screen.auxiliaryTopLeftArea,
@@ -86,14 +85,14 @@ final class NotchPanelController {
             } onChange: {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.updateFrame()
+                    self.animateFrameUpdate()
                     self.startObservingState()
                 }
             }
         }
     }
 
-    func updateFrame() {
+    private func animateFrameUpdate() {
         let frame = Self.computeFrame(
             screen: screen,
             expanded: panelState.isExpanded,
@@ -104,7 +103,14 @@ final class NotchPanelController {
             hoverZoneHeight: hoverZoneHeight,
             contentHeight: panelState.contentHeight
         )
-        panel.setFrame(frame, display: true, animate: panelState.isExpanded)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.4
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            self.panel.animator().setFrame(frame, display: true)
+        }
+
         panel.hasShadow = panelState.isExpanded
     }
 
