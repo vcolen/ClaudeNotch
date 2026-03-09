@@ -34,14 +34,9 @@ struct NotchView: View {
         .frame(maxWidth: .infinity)
         .background(
             ZStack {
-                // Rounded black background — NOT a rectangular fill
-                clipShape.fill(Color.black)
-
-                if panelState.isExpanded && panelState.hasNotch {
-                    clipShape.fill(.ultraThinMaterial)
-                }
-
                 if panelState.isExpanded {
+                    clipShape.fill(.ultraThinMaterial)
+                    clipShape.fill(Color.black.opacity(0.3))
                     clipShape
                         .stroke(
                             LinearGradient(
@@ -51,6 +46,8 @@ struct NotchView: View {
                             ),
                             lineWidth: 0.5
                         )
+                } else {
+                    clipShape.fill(Color.black)
                 }
             }
         )
