@@ -14,20 +14,24 @@ struct InstanceCardView: View {
                     Text(instance.projectName)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
-                        .layoutPriority(1)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 120, alignment: .leading)
 
                     if let branch = instance.branchName {
                         Text("  /  ")
                             .font(.system(size: 11, weight: .regular))
                             .foregroundStyle(NotchTokens.Branch.separator)
+                            .lineLimit(1)
 
                         Text(branch)
                             .font(.system(size: 11, weight: .regular))
                             .foregroundStyle(NotchTokens.Branch.name)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
                 }
                 .lineLimit(1)
-                .truncationMode(.tail)
 
                 Spacer(minLength: 8)
 
