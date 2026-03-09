@@ -9,8 +9,6 @@ final class NotchPanelController {
     let instanceManager: InstanceManager
 
     private let expandedWidth: CGFloat = 340
-    private let hoverZoneHeight: CGFloat = 6
-
     private var observationTask: Task<Void, Never>?
 
     init(screen: NSScreen, instanceManager: InstanceManager) {
@@ -35,6 +33,12 @@ final class NotchPanelController {
             notchWidth: notchWidth
         )
 
+        // Set initial collapsed height based on current instances
+        panelState.contentHeight = CollapsedNotchView.contentHeight(
+            instanceCount: instanceManager.instances.count,
+            maxWidth: notchWidth
+        )
+
         let initialFrame = Self.computeFrame(
             screen: screen,
             expanded: false,
@@ -42,7 +46,6 @@ final class NotchPanelController {
             notchHeight: notchHeight,
             collapsedWidth: notchWidth,
             expandedWidth: expandedWidth,
-            hoverZoneHeight: hoverZoneHeight,
             contentHeight: panelState.contentHeight
         )
         self.panel = NotchPanel(contentRect: initialFrame)
@@ -101,7 +104,6 @@ final class NotchPanelController {
             notchHeight: panelState.notchHeight,
             collapsedWidth: panelState.notchWidth,
             expandedWidth: expandedWidth,
-            hoverZoneHeight: hoverZoneHeight,
             contentHeight: panelState.contentHeight
         )
 
@@ -123,7 +125,6 @@ final class NotchPanelController {
         notchHeight: CGFloat,
         collapsedWidth: CGFloat,
         expandedWidth: CGFloat,
-        hoverZoneHeight: CGFloat,
         contentHeight: CGFloat
     ) -> NSRect {
         let screenFrame = screen.frame
@@ -135,9 +136,8 @@ final class NotchPanelController {
             let y = screenFrame.maxY - totalHeight
             return NSRect(x: x, y: y, width: width, height: totalHeight)
         } else {
-            let height = expanded ? contentHeight : hoverZoneHeight
-            let y = screenFrame.maxY - height
-            return NSRect(x: x, y: y, width: width, height: height)
+            let y = screenFrame.maxY - contentHeight
+            return NSRect(x: x, y: y, width: width, height: contentHeight)
         }
     }
 

@@ -47,7 +47,7 @@ struct NotchView: View {
                             lineWidth: 0.5
                         )
                 } else {
-                    clipShape.fill(Color.black)
+                    Color.clear
                 }
             }
         )
@@ -72,11 +72,18 @@ struct NotchView: View {
             }
         }
         .animation(NotchTokens.Animation.expandSpring, value: panelState.isExpanded)
+        .onChange(of: instanceManager.instances.count) { _, newCount in
+            if !panelState.isExpanded {
+                panelState.contentHeight = CollapsedNotchView.contentHeight(
+                    instanceCount: newCount,
+                    maxWidth: panelState.notchWidth
+                )
+            }
+        }
     }
 
     private var collapsedContent: some View {
-        CollapsedNotchView(instanceManager: instanceManager)
-            .frame(height: NotchTokens.Size.collapsedHeight)
+        CollapsedNotchView(instanceManager: instanceManager, maxWidth: panelState.notchWidth)
     }
 
     private var expandedContent: some View {
@@ -98,7 +105,10 @@ struct NotchView: View {
         guard panelState.isExpanded else { return }
         panelState.isExpanded = false
         instanceManager.stopCostPolling()
-        panelState.contentHeight = NotchTokens.Size.collapsedHeight
+        panelState.contentHeight = CollapsedNotchView.contentHeight(
+            instanceCount: instanceManager.instances.count,
+            maxWidth: panelState.notchWidth
+        )
     }
 
     private func updateContentHeight() {
