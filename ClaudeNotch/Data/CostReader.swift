@@ -8,13 +8,17 @@ struct CostInfo {
 
 /// Reads cost tracker JSON files written by Claude Code.
 /// Files live at ~/.claude-work/cost-tracker/sessions/{pid}-{date}.json
+/// or ~/.claude/cost-tracker/sessions/{pid}-{date}.json (personal accounts).
 struct CostReader {
     private static let contextWindow: Double = 200_000.0
-    private let sessionsDir: String
+    private let sessionsDirs: [String]
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        self.sessionsDir = "\(home)/.claude-work/cost-tracker/sessions"
+        self.sessionsDirs = [
+            "\(home)/.claude-work/cost-tracker/sessions",
+            "\(home)/.claude/cost-tracker/sessions",
+        ]
     }
 
     /// Read the most recent cost file for the given PID.
@@ -23,22 +27,25 @@ struct CostReader {
         let fm = FileManager.default
         let prefix = "\(pid)-"
 
-        guard let entries = try? fm.contentsOfDirectory(atPath: sessionsDir) else {
-            return nil
+        var bestFile: (path: String, name: String)?
+
+        for dir in sessionsDirs {
+            guard let entries = try? fm.contentsOfDirectory(atPath: dir) else {
+                continue
+            }
+
+            let matching = entries
+                .filter { $0.hasPrefix(prefix) && $0.hasSuffix(".json") }
+                .sorted()
+
+            if let last = matching.last {
+                if bestFile == nil || last > bestFile!.name {
+                    bestFile = (path: (dir as NSString).appendingPathComponent(last), name: last)
+                }
+            }
         }
 
-        // Find all files matching this PID, sort by name descending
-        // (filenames contain dates, so lexicographic sort gives most recent last)
-        let matching = entries
-            .filter { $0.hasPrefix(prefix) && $0.hasSuffix(".json") }
-            .sorted()
-
-        guard let mostRecent = matching.last else {
-            return nil
-        }
-
-        let filePath = (sessionsDir as NSString).appendingPathComponent(mostRecent)
-        guard let data = fm.contents(atPath: filePath) else {
+        guard let best = bestFile, let data = fm.contents(atPath: best.path) else {
             return nil
         }
 
