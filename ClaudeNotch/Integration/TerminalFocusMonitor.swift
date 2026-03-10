@@ -6,17 +6,12 @@ final class TerminalFocusMonitor {
     private static let iTermBundleId = "com.googlecode.iterm2"
 
     private let instanceManager: InstanceManager
-    nonisolated(unsafe) private var pollTask: Task<Void, Never>?
+    private var pollTask: Task<Void, Never>?
     private var isITermFocused = false
     private var isStarted = false
 
     init(instanceManager: InstanceManager) {
         self.instanceManager = instanceManager
-    }
-
-    deinit {
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
-        pollTask?.cancel()
     }
 
     func start() {
@@ -72,8 +67,11 @@ final class TerminalFocusMonitor {
         guard pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { break }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
+                }
                 await self?.checkActiveSession()
             }
         }

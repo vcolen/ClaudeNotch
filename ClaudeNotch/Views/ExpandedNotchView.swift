@@ -32,43 +32,19 @@ struct ExpandedNotchView: View {
     private var instanceList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                let attentionGroups = instanceManager.needsAttentionGroups
-                let workingGroups = instanceManager.workingGroups
-                let waitingGroups = instanceManager.waitingGroups
-                let idleGroups = instanceManager.idleGroups
-                let totalGroups = attentionGroups.count + workingGroups.count + waitingGroups.count + idleGroups.count
+                let sections: [(title: String, color: Color, groups: [ProjectGroup])] = [
+                    ("Needs Attention", NotchTokens.Status.attention, instanceManager.needsAttentionGroups),
+                    ("Running", NotchTokens.Status.working, instanceManager.workingGroups),
+                    ("Awaiting Input", NotchTokens.Status.waiting, instanceManager.waitingGroups),
+                    ("Idle", NotchTokens.Status.idle, instanceManager.idleGroups),
+                ]
+                let activeSections = sections.filter { !$0.groups.isEmpty }
+                let totalGroups = activeSections.reduce(0) { $0 + $1.groups.count }
                 var runningIndex = 0
 
-                if !attentionGroups.isEmpty {
-                    sectionHeader("Needs Attention", color: NotchTokens.Status.attention)
-                    ForEach(attentionGroups) { group in
-                        let idx = runningIndex
-                        let _ = (runningIndex += 1)
-                        groupView(group: group, index: idx, total: totalGroups)
-                    }
-                }
-
-                if !workingGroups.isEmpty {
-                    sectionHeader("Running", color: NotchTokens.Status.working)
-                    ForEach(workingGroups) { group in
-                        let idx = runningIndex
-                        let _ = (runningIndex += 1)
-                        groupView(group: group, index: idx, total: totalGroups)
-                    }
-                }
-
-                if !waitingGroups.isEmpty {
-                    sectionHeader("Awaiting Input", color: NotchTokens.Status.waiting)
-                    ForEach(waitingGroups) { group in
-                        let idx = runningIndex
-                        let _ = (runningIndex += 1)
-                        groupView(group: group, index: idx, total: totalGroups)
-                    }
-                }
-
-                if !idleGroups.isEmpty {
-                    sectionHeader("Idle", color: NotchTokens.Status.idle)
-                    ForEach(idleGroups) { group in
+                ForEach(activeSections, id: \.title) { section in
+                    sectionHeader(section.title, color: section.color)
+                    ForEach(section.groups) { group in
                         let idx = runningIndex
                         let _ = (runningIndex += 1)
                         groupView(group: group, index: idx, total: totalGroups)

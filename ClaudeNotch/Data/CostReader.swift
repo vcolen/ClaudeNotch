@@ -30,7 +30,13 @@ struct CostReader {
         var bestFile: (path: String, name: String)?
 
         for dir in sessionsDirs {
-            guard let entries = try? fm.contentsOfDirectory(atPath: dir) else {
+            let entries: [String]
+            do {
+                entries = try fm.contentsOfDirectory(atPath: dir)
+            } catch {
+                if fm.fileExists(atPath: dir) {
+                    NSLog("CostReader: cannot read sessions dir %@: %@", dir, "\(error)")
+                }
                 continue
             }
 
@@ -65,7 +71,11 @@ struct CostReader {
     }
 
     private func parseCostFile(_ data: Data) -> CostInfo? {
-        guard let file = try? JSONDecoder().decode(CostFile.self, from: data) else {
+        let file: CostFile
+        do {
+            file = try JSONDecoder().decode(CostFile.self, from: data)
+        } catch {
+            NSLog("CostReader: failed to parse cost file: %@", "\(error)")
             return nil
         }
 

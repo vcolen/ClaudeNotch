@@ -67,8 +67,11 @@ final class NotchPanelController {
                 }
             },
             onSelectInstance: { [weak instanceManager] instance in
-                instanceManager?.clearAttention(for: instance.id)
-                ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                guard let instanceManager else { return }
+                instanceManager.clearAttention(for: instance.id)
+                Task {
+                    await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                }
             }
         )
         panel.setContent(notchView)

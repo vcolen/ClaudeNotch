@@ -74,7 +74,7 @@ struct InstanceCardView: View {
                 RoundedRectangle(cornerRadius: NotchTokens.Size.cardCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [badgeColor.opacity(0.06), .clear],
+                            colors: [instance.displayColor.opacity(0.06), .clear],
                             startPoint: .trailing,
                             endPoint: .leading
                         )
@@ -108,25 +108,21 @@ struct InstanceCardView: View {
         }
     }
 
-    private var badgeColor: Color {
-        instance.displayColor
-    }
-
     private var statusBadge: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(badgeColor)
+                .fill(instance.displayColor)
                 .frame(width: 5, height: 5)
 
             Text(instance.needsAttention ? "Attention" : instance.status.displayName)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(badgeColor)
+                .foregroundStyle(instance.displayColor)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(badgeColor.opacity(0.12))
+                .fill(instance.displayColor.opacity(0.12))
         )
     }
 
