@@ -427,4 +427,93 @@ struct InstanceManagerTests {
         #expect(manager.waitingCount == 1)
         #expect(manager.idleCount == 1)
     }
+
+    // MARK: - Attention Transitions
+
+    @Test("Same status repeated does not set attention")
+    func sameStatusRepeatedNoAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    @Test("Ended removes attention instance")
+    func endedRemovesAttentionInstance() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "ended", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.isEmpty)
+        #expect(manager.needsAttentionCount == 0)
+    }
+
+    @Test("Counts exclude attention instances")
+    func countsExcludeAttentionInstances() {
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create a working instance
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Transition to waiting (sets attention)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        // Create a regular waiting instance (no attention since it starts as waiting)
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+
+        #expect(manager.needsAttentionCount == 1)
+        #expect(manager.waitingCount == 1) // Only s2, not s1
+        #expect(manager.activeCount == 0)
+    }
+
+    @Test("needsAttentionGroups groups correctly")
+    func needsAttentionGroupsCorrect() {
+        let manager = InstanceManager(skipBootstrap: true)
+        // Two instances in same project
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Transition both to waiting (sets attention)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+
+        let groups = manager.needsAttentionGroups
+        #expect(groups.count == 1)
+        #expect(groups[0].count == 2)
+        #expect(groups[0].displayName == "proj")
+    }
 }

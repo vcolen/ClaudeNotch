@@ -67,12 +67,15 @@ final class NotchPanelController {
                 }
             },
             onSelectInstance: { [weak instanceManager] instance in
-                instanceManager?.clearAttention(for: instance.id)
-                ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                guard let instanceManager else { return }
+                instanceManager.clearAttention(for: instance.id)
+                Task {
+                    await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                }
             }
         )
         panel.setContent(notchView)
-        panel.updateCornerRadius(8)
+        panel.updateCornerRadius(NotchTokens.Size.collapsedCornerRadius)
         panel.orderFrontRegardless()
 
         startObservingState()
@@ -107,14 +110,14 @@ final class NotchPanelController {
         )
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.4
+            context.duration = NotchTokens.Animation.frameDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             context.allowsImplicitAnimation = true
             self.panel.animator().setFrame(frame, display: true)
         }
 
         panel.hasShadow = panelState.isExpanded
-        panel.updateCornerRadius(panelState.isExpanded ? 16 : 8)
+        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
     }
 
     private static func computeFrame(

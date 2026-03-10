@@ -84,21 +84,10 @@ final class InstanceManager {
             .sorted { $0.displayName.localizedCompare($1.displayName) == .orderedAscending }
     }
 
-    var activeCount: Int {
-        instances.values.filter { $0.status == .working && !$0.needsAttention }.count
-    }
-
-    var waitingCount: Int {
-        instances.values.filter { $0.status == .waitingInput && !$0.needsAttention }.count
-    }
-
-    var idleCount: Int {
-        instances.values.filter { $0.status == .idle && !$0.needsAttention }.count
-    }
-
-    var needsAttentionCount: Int {
-        instances.values.filter { $0.needsAttention }.count
-    }
+    var activeCount: Int { workingInstances.count }
+    var waitingCount: Int { waitingInstances.count }
+    var idleCount: Int { idleInstances.count }
+    var needsAttentionCount: Int { needsAttentionInstances.count }
 
     // MARK: - Attention Management
 
@@ -143,7 +132,13 @@ final class InstanceManager {
 
     private func syncFromStateFile() {
         guard let data = FileManager.default.contents(atPath: Self.stateFilePath) else { return }
-        guard let stateFile = try? JSONDecoder().decode(StateFile.self, from: data) else { return }
+        let stateFile: StateFile
+        do {
+            stateFile = try JSONDecoder().decode(StateFile.self, from: data)
+        } catch {
+            NSLog("InstanceManager: failed to decode state file: %@", "\(error)")
+            return
+        }
 
         // Track which sessions are in the file
         var fileSessionIds = Set<String>()
@@ -185,8 +180,11 @@ final class InstanceManager {
     private func startStateFilePolling() {
         stateFilePollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { break }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
+                }
                 self?.syncFromStateFile()
             }
         }
@@ -260,8 +258,11 @@ final class InstanceManager {
     private func startStalePIDSweep() {
         staleSweepTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                guard !Task.isCancelled else { break }
+                do {
+                    try await Task.sleep(for: .seconds(60))
+                } catch {
+                    break
+                }
                 await self?.sweepStaleInstances()
             }
         }
@@ -289,11 +290,14 @@ final class InstanceManager {
 
     func startCostPolling() {
         costPollTask?.cancel()
-        refreshCosts()
         costPollTask = Task { [weak self] in
+            await self?.refreshCosts()
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                guard !Task.isCancelled else { break }
+                do {
+                    try await Task.sleep(for: .seconds(10))
+                } catch {
+                    break
+                }
                 await self?.refreshCosts()
             }
         }
@@ -304,16 +308,28 @@ final class InstanceManager {
         costPollTask = nil
     }
 
-    private func refreshCosts() {
-        for instance in instances.values {
-            if let costInfo = costReader.readCost(forPID: instance.pid) {
+    private func refreshCosts() async {
+        let instanceData = instances.values.map { (id: $0.id, pid: $0.pid, cwd: $0.cwd, remoteURL: $0.remoteURL) }
+
+        let results = await Task.detached { [costReader, branchReader] in
+            instanceData.map { inst in
+                let cost = costReader.readCost(forPID: inst.pid)
+                let branch = branchReader.readBranch(forDirectory: inst.cwd)
+                let remote = inst.remoteURL ?? branchReader.readRemoteURL(forDirectory: inst.cwd)
+                return (id: inst.id, cost: cost, branch: branch, remote: remote)
+            }
+        }.value
+
+        for result in results {
+            guard let instance = instances[result.id] else { continue }
+            if let costInfo = result.cost {
                 instance.cost = costInfo.totalCost
                 instance.model = costInfo.model
                 instance.contextUsagePercent = costInfo.contextPercent
             }
-            instance.branchName = branchReader.readBranch(forDirectory: instance.cwd)
+            instance.branchName = result.branch
             if instance.remoteURL == nil {
-                instance.remoteURL = branchReader.readRemoteURL(forDirectory: instance.cwd)
+                instance.remoteURL = result.remote
             }
         }
     }

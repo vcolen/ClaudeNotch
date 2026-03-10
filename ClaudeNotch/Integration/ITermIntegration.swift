@@ -30,18 +30,19 @@ enum ITermIntegration {
 
     // MARK: - Focus Session
 
-    static func focusSession(tty: String?, pid: Int) {
+    static func focusSession(tty: String?, pid: Int) async {
         guard isITermRunning() else {
             print("Warning: iTerm2 is not running. Cannot focus session.")
             return
         }
 
-        let resolvedTTY: String?
-        if let tty {
-            resolvedTTY = sanitizeTTY(tty)
-        } else {
-            resolvedTTY = lookupTTY(forPID: pid)
-        }
+        let resolvedTTY: String? = await Task.detached {
+            if let tty {
+                return sanitizeTTY(tty)
+            } else {
+                return lookupTTY(forPID: pid)
+            }
+        }.value
 
         guard let safeTTY = resolvedTTY else {
             print("Warning: Could not resolve a valid TTY for pid \(pid).")
@@ -133,6 +134,7 @@ enum ITermIntegration {
             try process.run()
             process.waitUntilExit()
         } catch {
+            NSLog("ITermIntegration: failed to run /bin/ps for PID %d: %@", pid, "\(error)")
             return nil
         }
 

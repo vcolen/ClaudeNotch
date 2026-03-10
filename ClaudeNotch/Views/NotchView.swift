@@ -9,7 +9,7 @@ struct NotchView: View {
     @State private var dismissTask: Task<Void, Never>?
 
     private var bottomRadius: CGFloat {
-        panelState.isExpanded ? 16 : 8
+        panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius
     }
 
     private var clipShape: UnevenRoundedRectangle {
@@ -71,7 +71,7 @@ struct NotchView: View {
             } else {
                 dismissTask?.cancel()
                 dismissTask = Task {
-                    try? await Task.sleep(for: .milliseconds(300))
+                    try? await Task.sleep(for: NotchTokens.Animation.dismissDelay)
                     guard !Task.isCancelled else { return }
                     await MainActor.run { collapse() }
                 }

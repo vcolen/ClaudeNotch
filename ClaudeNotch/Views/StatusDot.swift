@@ -28,6 +28,11 @@ struct StatusDot: View {
         return 1.0
     }
 
+    private func updatePulseState(status: InstanceStatus, isVisible: Bool, isAttention: Bool) {
+        attentionPulse = isAttention
+        isPulsing = status == .working && isVisible && !isAttention
+    }
+
     var body: some View {
         Circle()
             .fill(isAttention ? NotchTokens.Status.attention : status.color)
@@ -57,14 +62,13 @@ struct StatusDot: View {
                 }
             }
             .onChange(of: status) { _, newValue in
-                isPulsing = newValue == .working && isVisible && !isAttention
+                updatePulseState(status: newValue, isVisible: isVisible, isAttention: isAttention)
             }
             .onChange(of: isVisible) { _, visible in
-                isPulsing = status == .working && visible && !isAttention
+                updatePulseState(status: status, isVisible: visible, isAttention: isAttention)
             }
             .onChange(of: isAttention) { _, attention in
-                attentionPulse = attention
-                isPulsing = !attention && status == .working && isVisible
+                updatePulseState(status: status, isVisible: isVisible, isAttention: attention)
             }
     }
 }
