@@ -24,6 +24,8 @@ enum NotchTokens {
     enum Size {
         static let cardCornerRadius: CGFloat = 10
         static let contextBarHeight: CGFloat = 3.5
+        static let expandedCornerRadius: CGFloat = 16
+        static let collapsedCornerRadius: CGFloat = 8
     }
 
     enum ProjectGroup {
@@ -45,6 +47,8 @@ enum NotchTokens {
         static let expandSpring = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.78)
         static let hoverQuick = SwiftUI.Animation.easeOut(duration: 0.12)
         static let contentReveal = SwiftUI.Animation.easeOut(duration: 0.25)
+        static let frameDuration: Double = 0.4
+        static let dismissDelay: Duration = .milliseconds(300)
 
         /// Returns a stagger delay for the given index, capping total stagger at 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {
