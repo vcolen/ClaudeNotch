@@ -7,6 +7,7 @@ enum NotchTokens {
         static let working = Color(red: 0.3, green: 0.85, blue: 0.4)
         static let waiting = Color(red: 1.0, green: 0.8, blue: 0.2)
         static let idle = Color.white.opacity(0.4)
+        static let attention = Color(red: 1.0, green: 0.6, blue: 0.15)
     }
 
     enum Branch {
@@ -65,5 +66,13 @@ extension InstanceStatus {
         case .waitingInput: return NotchTokens.Status.waiting
         case .idle: return NotchTokens.Status.idle
         }
+    }
+}
+
+// MARK: - ClaudeInstance Display Color
+
+extension ClaudeInstance {
+    var displayColor: Color {
+        needsAttention ? NotchTokens.Status.attention : status.color
     }
 }

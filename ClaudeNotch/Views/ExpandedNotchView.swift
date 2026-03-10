@@ -32,11 +32,21 @@ struct ExpandedNotchView: View {
     private var instanceList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
+                let attentionGroups = instanceManager.needsAttentionGroups
                 let workingGroups = instanceManager.workingGroups
                 let waitingGroups = instanceManager.waitingGroups
                 let idleGroups = instanceManager.idleGroups
-                let totalGroups = workingGroups.count + waitingGroups.count + idleGroups.count
+                let totalGroups = attentionGroups.count + workingGroups.count + waitingGroups.count + idleGroups.count
                 var runningIndex = 0
+
+                if !attentionGroups.isEmpty {
+                    sectionHeader("Needs Attention", color: NotchTokens.Status.attention)
+                    ForEach(attentionGroups) { group in
+                        let idx = runningIndex
+                        let _ = (runningIndex += 1)
+                        groupView(group: group, index: idx, total: totalGroups)
+                    }
+                }
 
                 if !workingGroups.isEmpty {
                     sectionHeader("Running", color: NotchTokens.Status.working)

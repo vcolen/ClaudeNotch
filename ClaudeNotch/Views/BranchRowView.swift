@@ -35,7 +35,7 @@ struct BranchRowView: View {
                 }
 
                 Circle()
-                    .fill(instance.status.color)
+                    .fill(instance.displayColor)
                     .frame(width: 5, height: 5)
             }
 

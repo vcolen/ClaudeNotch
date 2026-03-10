@@ -117,22 +117,20 @@ struct InstanceManagerTests {
 
     // MARK: - Computed Properties
 
-    @Test("Sorted instances ordered by updatedAt descending")
+    @Test("Sorted instances ordered by status priority")
     func sortedInstancesOrder() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
             status: "processing", tty: nil, tool: nil
         ))
-        // Manually set earlier date on first instance
-        manager.instances["s1"]?.updatedAt = Date.distantPast
         manager.handleSocketEvent(.init(
             sessionId: "s2", pid: 101, cwd: "/tmp/b",
             status: "waiting_for_input", tty: nil, tool: nil
         ))
         let sorted = manager.sortedInstances
         #expect(sorted.count == 2)
-        #expect(sorted.first?.id == "s2") // Most recent first
+        #expect(sorted.first?.id == "s1") // Working instances come first
     }
 
     // MARK: - Project Grouping
@@ -240,6 +238,172 @@ struct InstanceManagerTests {
         #expect(GitBranchReader.repoName(from: "git@github.com:user/my-repo.git") == "my-repo")
         #expect(GitBranchReader.repoName(from: "https://github.com/user/my-repo.git") == "my-repo")
         #expect(GitBranchReader.repoName(from: "https://github.com/user/my-repo") == "my-repo")
+    }
+
+    // MARK: - Attention State
+
+    @Test("Working to waiting sets needsAttention")
+    func workingToWaitingSetsAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == false)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+    }
+
+    @Test("Working to idle sets needsAttention")
+    func workingToIdleSetsAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+    }
+
+    @Test("Resuming work clears needsAttention")
+    func resumingWorkClearsAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    @Test("clearAttention works")
+    func clearAttentionWorks() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+
+        manager.clearAttention(for: "s1")
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    @Test("clearAttention with nonexistent ID is safe")
+    func clearAttentionWithNonexistentIdIsSafe() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.clearAttention(for: "nonexistent")
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("New instance does not have attention")
+    func newInstanceDoesNotHaveAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    @Test("Non-working to non-working does not set attention")
+    func nonWorkingToNonWorkingNoAttention() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    @Test("Attention instance excluded from waitingInstances")
+    func attentionInstanceExcludedFromWaitingInstances() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.needsAttention == true)
+        #expect(manager.needsAttentionInstances.count == 1)
+        #expect(manager.waitingInstances.isEmpty)
+    }
+
+    @Test("needsAttentionCount is correct after transitions")
+    func needsAttentionCountIsCorrect() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.needsAttentionCount == 0)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.needsAttentionCount == 1)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.needsAttentionCount == 2)
+    }
+
+    @Test("Sorted instances show attention first")
+    func sortedInstancesAttentionFirst() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Transition s1 to waiting (sets attention)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+
+        let sorted = manager.sortedInstances
+        #expect(sorted.count == 2)
+        #expect(sorted[0].id == "s1") // Attention instance first
+        #expect(sorted[0].needsAttention == true)
+        #expect(sorted[1].id == "s2") // Working instance second
     }
 
     // MARK: - Counts

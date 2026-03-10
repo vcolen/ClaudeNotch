@@ -89,15 +89,38 @@ enum ITermIntegration {
         executeAppleScript(source)
     }
 
+    // MARK: - Active Session TTY
+
+    static func activeSessionTTY() -> String? {
+        let source = """
+        tell application "iTerm"
+          if (count of windows) is 0 then return ""
+          tell current session of current tab of current window
+            return tty
+          end tell
+        end tell
+        """
+
+        var error: NSDictionary?
+        let script = NSAppleScript(source: source)
+        guard let result = script?.executeAndReturnError(&error) else {
+            if let error { NSLog("AppleScript error in activeSessionTTY: \(error)") }
+            return nil
+        }
+        let tty = result.stringValue ?? ""
+        guard !tty.isEmpty else { return nil }
+        return sanitizeTTY(tty)
+    }
+
     // MARK: - Helpers
 
-    private static func isITermRunning() -> Bool {
+    static func isITermRunning() -> Bool {
         NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.googlecode.iterm2"
         ).isEmpty == false
     }
 
-    private static func lookupTTY(forPID pid: Int) -> String? {
+    static func lookupTTY(forPID pid: Int) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
         process.arguments = ["-o", "tty=", "-p", "\(pid)"]

@@ -69,12 +69,12 @@ struct InstanceCardView: View {
                 .fill(isHovered ? NotchTokens.Surface.cardHover : NotchTokens.Surface.cardBackground)
         )
         .overlay {
-            // Status color bleed for working instances
-            if instance.status == .working {
+            // Status color bleed for working or attention instances
+            if instance.status == .working || instance.needsAttention {
                 RoundedRectangle(cornerRadius: NotchTokens.Size.cardCornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [instance.status.color.opacity(0.06), .clear],
+                            colors: [badgeColor.opacity(0.06), .clear],
                             startPoint: .trailing,
                             endPoint: .leading
                         )
@@ -108,21 +108,25 @@ struct InstanceCardView: View {
         }
     }
 
+    private var badgeColor: Color {
+        instance.displayColor
+    }
+
     private var statusBadge: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(instance.status.color)
+                .fill(badgeColor)
                 .frame(width: 5, height: 5)
 
-            Text(instance.status.displayName)
+            Text(instance.needsAttention ? "Attention" : instance.status.displayName)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(instance.status.color)
+                .foregroundStyle(badgeColor)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(instance.status.color.opacity(0.12))
+                .fill(badgeColor.opacity(0.12))
         )
     }
 

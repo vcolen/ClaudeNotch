@@ -18,24 +18,30 @@ final class InstanceManager {
 
     var workingInstances: [ClaudeInstance] {
         instances.values
-            .filter { $0.status == .working }
+            .filter { $0.status == .working && !$0.needsAttention }
             .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
     }
 
     var waitingInstances: [ClaudeInstance] {
         instances.values
-            .filter { $0.status == .waitingInput }
+            .filter { $0.status == .waitingInput && !$0.needsAttention }
             .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
     }
 
     var idleInstances: [ClaudeInstance] {
         instances.values
-            .filter { $0.status == .idle }
+            .filter { $0.status == .idle && !$0.needsAttention }
+            .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
+    }
+
+    var needsAttentionInstances: [ClaudeInstance] {
+        instances.values
+            .filter { $0.needsAttention }
             .sorted { $0.projectName.localizedCompare($1.projectName) == .orderedAscending }
     }
 
     var sortedInstances: [ClaudeInstance] {
-        workingInstances + waitingInstances + idleInstances
+        needsAttentionInstances + workingInstances + waitingInstances + idleInstances
     }
 
     // MARK: - Grouped by Project
@@ -50,6 +56,10 @@ final class InstanceManager {
 
     var idleGroups: [ProjectGroup] {
         groupByProject(idleInstances)
+    }
+
+    var needsAttentionGroups: [ProjectGroup] {
+        groupByProject(needsAttentionInstances)
     }
 
     private func groupByProject(_ instances: [ClaudeInstance]) -> [ProjectGroup] {
@@ -75,15 +85,35 @@ final class InstanceManager {
     }
 
     var activeCount: Int {
-        instances.values.filter { $0.status == .working }.count
+        instances.values.filter { $0.status == .working && !$0.needsAttention }.count
     }
 
     var waitingCount: Int {
-        instances.values.filter { $0.status == .waitingInput }.count
+        instances.values.filter { $0.status == .waitingInput && !$0.needsAttention }.count
     }
 
     var idleCount: Int {
-        instances.values.filter { $0.status == .idle }.count
+        instances.values.filter { $0.status == .idle && !$0.needsAttention }.count
+    }
+
+    var needsAttentionCount: Int {
+        instances.values.filter { $0.needsAttention }.count
+    }
+
+    // MARK: - Attention Management
+
+    func clearAttention(for sessionId: String) {
+        instances[sessionId]?.needsAttention = false
+    }
+
+    private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
+        let previousStatus = instance.status
+        instance.status = newStatus
+        if previousStatus == .working && newStatus != .working {
+            instance.needsAttention = true
+        } else if newStatus == .working {
+            instance.needsAttention = false
+        }
     }
 
     init(skipBootstrap: Bool = false) {
@@ -126,7 +156,7 @@ final class InstanceManager {
 
             if let existing = instances[sessionId] {
                 if existing.status != status {
-                    existing.status = status
+                    applyStatusTransition(on: existing, newStatus: status)
                 }
                 if existing.pid != inst.pid {
                     existing.pid = inst.pid
@@ -175,16 +205,16 @@ final class InstanceManager {
 
     func handleSocketEvent(_ event: SocketEvent) {
         let mappedStatus = mapStatus(event.status)
-
         if event.status == "ended" {
             instances.removeValue(forKey: event.sessionId)
             return
         }
 
         if let existing = instances[event.sessionId] {
-            existing.status = mappedStatus
+            applyStatusTransition(on: existing, newStatus: mappedStatus)
             existing.updatedAt = Date()
             existing.pid = event.pid
+
             if existing.cwd != event.cwd {
                 existing.cwd = event.cwd
                 existing.projectName = (event.cwd as NSString).lastPathComponent

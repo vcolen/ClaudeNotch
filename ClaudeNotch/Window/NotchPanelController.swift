@@ -66,7 +66,8 @@ final class NotchPanelController {
                     ITermIntegration.launchNewInstance(in: url.path)
                 }
             },
-            onSelectInstance: { instance in
+            onSelectInstance: { [weak instanceManager] instance in
+                instanceManager?.clearAttention(for: instance.id)
                 ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
             }
         )
