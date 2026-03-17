@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+/// Ensures the first mouse click activates the view even when the hosting window is not key,
+/// enabling single-click interaction on the notch panel.
+final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 final class NotchPanel: NSPanel {
     private weak var hostingLayer: CALayer?
 
@@ -22,8 +28,16 @@ final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    // Works with ClickThroughHostingView.acceptsFirstMouse to ensure single-click activation on non-key panels
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown && !isKeyWindow {
+            makeKey()
+        }
+        super.sendEvent(event)
+    }
+
     func setContent(_ view: some View) {
-        let hostingView = NSHostingView(rootView: view)
+        let hostingView = ClickThroughHostingView(rootView: view)
         hostingView.wantsLayer = true
         hostingView.layer?.isOpaque = false
         hostingView.layer?.backgroundColor = CGColor.clear

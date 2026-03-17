@@ -34,6 +34,7 @@
 		A1B2C3D4000000C1 /* ITermIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000021 /* ITermIntegration.swift */; };
 		A1B2C3D4000000C2 /* RecentProjectsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000022 /* RecentProjectsStore.swift */; };
 		A1B2C3D4000000C8 /* TerminalFocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002B /* TerminalFocusMonitor.swift */; };
+		A1B2C3D4000000C9 /* WindowHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002C /* WindowHighlighter.swift */; };
 		/* Theme Sources */
 		A1B2C3D4000000C3 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000026 /* DesignTokens.swift */; };
 		/* Resources */
@@ -46,6 +47,7 @@
 		/* GitBranch Sources */
 		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
 		A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000044 /* GitBranchReaderTests.swift */; };
+		A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000045 /* NotchPanelTests.swift */; };
 		/* ProjectGroup Sources */
 		A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000028 /* ProjectGroup.swift */; };
 		A1B2C3D4000000C6 /* BranchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000029 /* BranchRowView.swift */; };
@@ -88,6 +90,7 @@
 		A1B2C3D400000021 /* ITermIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ITermIntegration.swift; sourceTree = "<group>"; };
 		A1B2C3D400000022 /* RecentProjectsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentProjectsStore.swift; sourceTree = "<group>"; };
 		A1B2C3D40000002B /* TerminalFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFocusMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002C /* WindowHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowHighlighter.swift; sourceTree = "<group>"; };
 		/* Theme Sources */
 		A1B2C3D400000026 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		/* Resources */
@@ -108,6 +111,7 @@
 		/* GitBranch */
 		A1B2C3D400000027 /* GitBranchReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReader.swift; sourceTree = "<group>"; };
 		A1B2C3D400000044 /* GitBranchReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReaderTests.swift; sourceTree = "<group>"; };
+		A1B2C3D400000045 /* NotchPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanelTests.swift; sourceTree = "<group>"; };
 		/* ProjectGroup */
 		A1B2C3D400000028 /* ProjectGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroup.swift; sourceTree = "<group>"; };
 		A1B2C3D400000029 /* BranchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchRowView.swift; sourceTree = "<group>"; };
@@ -213,6 +217,7 @@
 				A1B2C3D400000021 /* ITermIntegration.swift */,
 				A1B2C3D400000022 /* RecentProjectsStore.swift */,
 				A1B2C3D40000002B /* TerminalFocusMonitor.swift */,
+				A1B2C3D40000002C /* WindowHighlighter.swift */,
 			);
 			path = Integration;
 			sourceTree = "<group>";
@@ -243,6 +248,7 @@
 				A1B2C3D400000042 /* CostReaderTests.swift */,
 				A1B2C3D400000043 /* ITermSanitizationTests.swift */,
 				A1B2C3D400000044 /* GitBranchReaderTests.swift */,
+				A1B2C3D400000045 /* NotchPanelTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -382,6 +388,7 @@
 				A1B2C3D4000000C6 /* BranchRowView.swift in Sources */,
 				A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */,
 				A1B2C3D4000000C8 /* TerminalFocusMonitor.swift in Sources */,
+				A1B2C3D4000000C9 /* WindowHighlighter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -394,6 +401,7 @@
 				A1B2C3D4000000D2 /* CostReaderTests.swift in Sources */,
 				A1B2C3D4000000D3 /* ITermSanitizationTests.swift in Sources */,
 				A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */,
+				A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
