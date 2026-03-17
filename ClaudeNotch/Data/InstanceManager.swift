@@ -208,18 +208,34 @@ final class InstanceManager {
             return
         }
 
+        // Validate tty at entry
+        let sanitizedTTY: String?
+        if let tty = event.tty {
+            sanitizedTTY = ITermIntegration.sanitizeTTY(tty)
+        } else {
+            sanitizedTTY = nil
+        }
+
+        // Cap cwd length and validate basic path format
+        let cwd: String
+        if event.cwd.count <= 512, event.cwd.hasPrefix("/") {
+            cwd = event.cwd
+        } else {
+            cwd = "/tmp"
+        }
+
         if let existing = instances[event.sessionId] {
             applyStatusTransition(on: existing, newStatus: mappedStatus)
             existing.updatedAt = Date()
             existing.pid = event.pid
 
-            if existing.cwd != event.cwd {
-                existing.cwd = event.cwd
-                existing.projectName = (event.cwd as NSString).lastPathComponent
-                existing.branchName = branchReader.readBranch(forDirectory: event.cwd)
-                existing.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
+            if existing.cwd != cwd {
+                existing.cwd = cwd
+                existing.projectName = String((cwd as NSString).lastPathComponent.prefix(100))
+                existing.branchName = branchReader.readBranch(forDirectory: cwd).map { String($0.prefix(100)) }
+                existing.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
             }
-            if let tty = event.tty {
+            if let tty = sanitizedTTY {
                 existing.tty = tty
             }
             if let tool = event.tool {
@@ -229,12 +245,13 @@ final class InstanceManager {
             let instance = ClaudeInstance(
                 id: event.sessionId,
                 pid: event.pid,
-                cwd: event.cwd,
+                cwd: cwd,
                 status: mappedStatus,
-                tty: event.tty
+                tty: sanitizedTTY
             )
-            instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
-            instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
+            instance.projectName = String(instance.projectName.prefix(100))
+            instance.branchName = branchReader.readBranch(forDirectory: cwd).map { String($0.prefix(100)) }
+            instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
             if let tool = event.tool {
                 instance.lastTool = tool
             }

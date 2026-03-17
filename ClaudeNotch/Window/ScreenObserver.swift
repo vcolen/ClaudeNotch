@@ -4,6 +4,7 @@ import AppKit
 final class ScreenObserver {
     private var controllers: [CGDirectDisplayID: NotchPanelController] = [:]
     private let instanceManager: InstanceManager
+    private let notificationManager = NotificationManager()
 
     init(instanceManager: InstanceManager) {
         self.instanceManager = instanceManager
@@ -47,7 +48,7 @@ final class ScreenObserver {
             currentDisplayIDs.insert(displayID)
 
             if controllers[displayID] == nil {
-                let controller = NotchPanelController(screen: screen, instanceManager: instanceManager)
+                let controller = NotchPanelController(screen: screen, instanceManager: instanceManager, notificationManager: notificationManager)
                 controllers[displayID] = controller
             }
         }

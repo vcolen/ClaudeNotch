@@ -90,6 +90,39 @@ enum ITermIntegration {
         executeAppleScript(source)
     }
 
+    // MARK: - Tab Index Lookup
+
+    static func lookupTabIndex(forTTY tty: String) async -> Int? {
+        guard isITermRunning() else { return nil }
+        return await Task.detached {
+            guard let safeTTY = sanitizeTTY(tty) else { return nil as Int? }
+            let source = """
+            tell application "iTerm"
+              set counter to 0
+              repeat with w in windows
+                repeat with t in tabs of w
+                  repeat with s in sessions of t
+                    set counter to counter + 1
+                    if tty of s is "\(safeTTY)" then
+                      return counter
+                    end if
+                  end repeat
+                end repeat
+              end repeat
+              return -1
+            end tell
+            """
+            var error: NSDictionary?
+            let script = NSAppleScript(source: source)
+            guard let result = script?.executeAndReturnError(&error) else {
+                if let error { NSLog("AppleScript error in lookupTabIndex: %@", "\(error)") }
+                return nil
+            }
+            let index = result.int32Value
+            return index > 0 ? Int(index) : nil
+        }.value
+    }
+
     // MARK: - Active Session TTY
 
     static func activeSessionTTY() -> String? {

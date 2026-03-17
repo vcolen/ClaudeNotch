@@ -44,6 +44,15 @@ enum NotchTokens {
         static let contextBarHeight: CGFloat = 2.5
     }
 
+    enum Notification {
+        static let bannerHeight: CGFloat = 48
+        static let cornerRadius: CGFloat = 12
+        static let dismissTimeout: Duration = .seconds(5)
+        static let rotationInterval: Duration = .seconds(4)
+        static let swapAnimation = SwiftUI.Animation.spring(response: 0.35, dampingFraction: 0.82)
+        static let debounceDelay: Duration = .milliseconds(500)
+    }
+
     enum Animation {
         static let expandSpring = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.78)
         static let hoverQuick = SwiftUI.Animation.easeOut(duration: 0.12)
