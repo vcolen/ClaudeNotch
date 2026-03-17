@@ -69,9 +69,9 @@ final class NotchPanelController {
             onSelectInstance: { [weak instanceManager] instance in
                 guard let instanceManager else { return }
                 instanceManager.clearAttention(for: instance.id)
-                Task {
+                Task { @MainActor in
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
-                    // Brief delay to let iTerm's window come to front before measuring its frame
+                    // Brief delay for iTerm's window to come to front; we need the window number to position the glow behind it
                     try? await Task.sleep(for: .milliseconds(150))
                     WindowHighlighter.flashiTermWindow()
                 }
