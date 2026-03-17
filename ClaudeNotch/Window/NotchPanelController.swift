@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class NotchPanelController {
     let panel: NotchPanel
-    let screen: NSScreen
+    private(set) var screen: NSScreen
     let panelState: PanelState
     let instanceManager: InstanceManager
 
@@ -15,36 +15,25 @@ final class NotchPanelController {
         self.screen = screen
         self.instanceManager = instanceManager
 
-        let hasNotch = screen.safeAreaInsets.top > 0
-        let notchHeight = screen.safeAreaInsets.top
-
-        let notchWidth: CGFloat
-        if hasNotch,
-           let leftArea = screen.auxiliaryTopLeftArea,
-           let rightArea = screen.auxiliaryTopRightArea {
-            notchWidth = rightArea.minX - leftArea.maxX
-        } else {
-            notchWidth = 220
-        }
+        let geo = ScreenGeometry(screen: screen)
 
         self.panelState = PanelState(
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            notchWidth: notchWidth
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            notchWidth: geo.notchWidth
         )
 
-        // Set initial collapsed height based on current instances
         panelState.contentHeight = CollapsedNotchView.contentHeight(
             instanceCount: instanceManager.instances.count,
-            maxWidth: notchWidth
+            maxWidth: geo.notchWidth
         )
 
         let initialFrame = Self.computeFrame(
             screen: screen,
             expanded: false,
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            collapsedWidth: notchWidth,
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            collapsedWidth: geo.notchWidth,
             expandedWidth: expandedWidth,
             contentHeight: panelState.contentHeight
         )
@@ -109,6 +98,8 @@ final class NotchPanelController {
             contentHeight: panelState.contentHeight
         )
 
+        guard panel.frame != frame else { return }
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NotchTokens.Animation.frameDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -143,9 +134,54 @@ final class NotchPanelController {
         }
     }
 
+    func updateScreen(_ newScreen: NSScreen) {
+        screen = newScreen
+        let geo = ScreenGeometry(screen: newScreen)
+
+        panelState.hasNotch = geo.hasNotch
+        panelState.notchHeight = geo.notchHeight
+        panelState.notchWidth = geo.notchWidth
+
+        if !panelState.isExpanded {
+            panelState.contentHeight = CollapsedNotchView.contentHeight(
+                instanceCount: instanceManager.instances.count,
+                maxWidth: geo.notchWidth
+            )
+        }
+
+        let frame = Self.computeFrame(
+            screen: newScreen,
+            expanded: panelState.isExpanded,
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            collapsedWidth: geo.notchWidth,
+            expandedWidth: expandedWidth,
+            contentHeight: panelState.contentHeight
+        )
+        panel.setFrame(frame, display: true)
+    }
+
     func tearDown() {
         observationTask?.cancel()
         observationTask = nil
         panel.orderOut(nil)
+    }
+
+    private struct ScreenGeometry {
+        let hasNotch: Bool
+        let notchHeight: CGFloat
+        let notchWidth: CGFloat
+
+        init(screen: NSScreen) {
+            hasNotch = screen.safeAreaInsets.top > 0
+            notchHeight = screen.safeAreaInsets.top
+            if hasNotch,
+               let leftArea = screen.auxiliaryTopLeftArea,
+               let rightArea = screen.auxiliaryTopRightArea {
+                notchWidth = rightArea.minX - leftArea.maxX
+            } else {
+                notchWidth = 220
+            }
+        }
     }
 }

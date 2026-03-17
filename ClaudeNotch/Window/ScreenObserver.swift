@@ -4,6 +4,7 @@ import AppKit
 final class ScreenObserver {
     private var controllers: [CGDirectDisplayID: NotchPanelController] = [:]
     private let instanceManager: InstanceManager
+    private var syncWorkItem: DispatchWorkItem?
 
     init(instanceManager: InstanceManager) {
         self.instanceManager = instanceManager
@@ -34,7 +35,12 @@ final class ScreenObserver {
     }
 
     @objc private func screensDidChange(_ notification: Notification) {
-        syncScreens()
+        syncWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.syncScreens()
+        }
+        syncWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     private func syncScreens() {
@@ -46,7 +52,9 @@ final class ScreenObserver {
             guard let displayID = displayID(for: screen) else { continue }
             currentDisplayIDs.insert(displayID)
 
-            if controllers[displayID] == nil {
+            if let existing = controllers[displayID] {
+                existing.updateScreen(screen)
+            } else {
                 let controller = NotchPanelController(screen: screen, instanceManager: instanceManager)
                 controllers[displayID] = controller
             }
