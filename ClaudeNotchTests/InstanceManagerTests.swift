@@ -501,18 +501,20 @@ struct InstanceManagerTests {
         #expect(manager.instances["parent"]?.needsAttention == false)
     }
 
-    @Test("Subagent updates metadata (tool, tty)")
-    func subagentUpdatesMetadata() {
+    @Test("Subagent updates tool but NOT tty")
+    func subagentUpdatesToolButNotTty() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
-            status: "processing", tty: nil, tool: nil
+            status: "processing", tty: "/dev/ttys001", tool: nil
         ))
         manager.handleSocketEvent(.init(
             sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
             status: "processing", tty: "/dev/ttys005", tool: "Grep"
         ))
-        #expect(manager.instances["parent"]?.tty == "/dev/ttys005")
+        // TTY should NOT be overwritten by subagent (fix 1.3)
+        #expect(manager.instances["parent"]?.tty == "/dev/ttys001")
+        // Tool should still be updated
         #expect(manager.instances["parent"]?.lastTool == "Grep")
     }
 
@@ -678,5 +680,228 @@ struct InstanceManagerTests {
         #expect(groups.count == 1)
         #expect(groups[0].count == 2)
         #expect(groups[0].displayName == "proj")
+    }
+
+    // MARK: - Socket Event Edge Cases
+
+    @Test("updatedAt is refreshed by subagent socket events")
+    func updatedAtRefreshedBySubagentEvents() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        let firstUpdate = manager.instances["parent"]!.updatedAt
+
+        // Small delay to ensure time difference
+        Thread.sleep(forTimeInterval: 0.01)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        let secondUpdate = manager.instances["parent"]!.updatedAt
+        #expect(secondUpdate > firstUpdate)
+    }
+
+    @Test("Direct session_id match takes priority over PID match")
+    func directMatchTakesPriorityOverPidMatch() {
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create parent instance
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Send event with parent's session_id — should match directly, not via PID
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        // Direct match means status transition IS applied
+        #expect(manager.instances["parent"]?.status == .waitingInput)
+        #expect(manager.instances["parent"]?.needsAttention == true)
+    }
+
+    @Test("Negative PID is rejected")
+    func negativePidIsRejected() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: -1, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("'ended' event with PID 0 still removes instance")
+    func endedEventWithPidZeroRemovesInstance() {
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance normally
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+
+        // Send ended event with PID 0 — should still remove (ended check is before PID guard)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 0, cwd: "/tmp/test",
+            status: "ended", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("Subagent TTY does NOT overwrite canonical tty")
+    func subagentTtyDoesNotOverwriteCanonical() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: "/dev/ttys001", tool: nil
+        ))
+        #expect(manager.instances["parent"]?.tty == "/dev/ttys001")
+
+        // Subagent with different TTY
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: "/dev/ttys099", tool: nil
+        ))
+        // Parent TTY must remain unchanged
+        #expect(manager.instances["parent"]?.tty == "/dev/ttys001")
+    }
+
+    // MARK: - State File Sync
+
+    @Test("State file with parent and subagent (same PID) produces 1 instance")
+    func stateFileDedupSamePid() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let stateFile = InstanceManager.StateFile(instances: [
+            "parent": .init(status: "active", pid: 200, cwd: "/tmp/project"),
+            "subagent": .init(status: "active", pid: 200, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances.count == 1)
+    }
+
+    @Test("Subagent entry in state file does not override canonical status")
+    func stateFileSubagentDoesNotOverrideStatus() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // First establish a canonical instance via socket event
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["parent"]?.status == .working)
+
+        // State file has subagent with idle status
+        let stateFile = InstanceManager.StateFile(instances: [
+            "parent": .init(status: "active", pid: 200, cwd: "/tmp/project"),
+            "subagent": .init(status: "unknown", pid: 200, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["parent"]?.status == .working)
+        #expect(manager.instances.count == 1)
+    }
+
+    @Test("State file entries with pid <= 0 are skipped")
+    func stateFileSkipsInvalidPid() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 0, cwd: "/tmp/a"),
+            "s2": .init(status: "active", pid: -1, cwd: "/tmp/b"),
+            "s3": .init(status: "active", pid: 100, cwd: "/tmp/c"),
+        ])
+        manager.sync(from: stateFile)
+        // Only s3 should be created (valid PID)
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances.values.first?.pid == 100)
+    }
+
+    // MARK: - Stale Threshold Guard
+
+    @Test("Recently-updated instance survives state file removal")
+    func recentlyUpdatedInstanceSurvivesRemoval() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket event (sets updatedAt to now)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+
+        // Sync with empty state file — instance was just updated, should survive
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["s1"] != nil)
+    }
+
+    @Test("Stale instance gets removed by state file sync")
+    func staleInstanceRemovedBySync() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket event
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Artificially age the instance past the stale threshold
+        manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
+
+        // Sync with empty state file — stale instance should be removed
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("Instance at exact stale boundary is removed")
+    func instanceAtStaleBoundaryIsRemoved() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Set updatedAt to exactly 5 seconds ago (at the boundary)
+        manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-5)
+
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        // At the boundary, instance should be removed (updatedAt is NOT > staleThreshold)
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("State file sync sets updatedAt on existing instances")
+    func stateFileSyncSetsUpdatedAt() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket event
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Age the instance
+        let oldDate = Date().addingTimeInterval(-3)
+        manager.instances["s1"]!.updatedAt = oldDate
+
+        // State file sync should refresh updatedAt
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]!.updatedAt > oldDate)
     }
 }

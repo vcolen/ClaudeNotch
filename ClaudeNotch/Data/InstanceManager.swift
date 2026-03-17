@@ -8,24 +8,6 @@ final class InstanceManager {
     var instances: [String: ClaudeInstance] = [:]
     var isExpanded = false
 
-    /// Returns the existing instance that shares the given PID, if any.
-    /// Guards against PID 0 which has special kill() semantics.
-    private func existingInstance(forPID pid: Int) -> ClaudeInstance? {
-        guard pid > 0 else { return nil }
-        return instances.values.first { $0.pid == pid }
-    }
-
-    /// Shared metadata update logic for both socket events and state file sync.
-    private func updateInstanceMetadata(_ instance: ClaudeInstance, pid: Int, cwd: String) {
-        if instance.pid != pid { instance.pid = pid }
-        if instance.cwd != cwd {
-            instance.cwd = cwd
-            instance.projectName = (cwd as NSString).lastPathComponent
-            instance.branchName = branchReader.readBranch(forDirectory: cwd)
-            instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
-        }
-    }
-
     private var staleSweepTask: Task<Void, Never>?
     private var costPollTask: Task<Void, Never>?
     private var stateFilePollTask: Task<Void, Never>?
@@ -33,6 +15,15 @@ final class InstanceManager {
     private let branchReader = GitBranchReader()
 
     private static let stateFilePath = "/tmp/screen-blocker/state.json"
+
+    /// Grace period for keeping socket-created instances that may not yet appear in the state file.
+    /// Must exceed the state file polling interval (2s) to avoid flicker during sync gaps.
+    private static let staleGracePeriod: TimeInterval = 5
+
+    #if DEBUG
+    /// Override for testing; when set, replaces the real process-liveness check.
+    nonisolated(unsafe) static var testProcessAliveOverride: ((Int) -> Bool)?
+    #endif
 
     var workingInstances: [ClaudeInstance] {
         instances.values
@@ -137,9 +128,32 @@ final class InstanceManager {
         stateFilePollTask?.cancel()
     }
 
+    // MARK: - PID Deduplication
+
+    /// Returns the existing instance that shares the given PID, if any.
+    /// Guards against PID 0 to prevent false deduplication when PID is unknown or unset.
+    private func existingInstance(forPID pid: Int) -> ClaudeInstance? {
+        guard pid > 0 else {
+            assertionFailure("existingInstance(forPID:) called with pid <= 0")
+            return nil
+        }
+        return instances.values.first { $0.pid == pid }
+    }
+
+    /// Shared metadata update logic for both socket events and state file sync.
+    private func updateInstanceMetadata(_ instance: ClaudeInstance, pid: Int, cwd: String) {
+        instance.pid = pid
+        if instance.cwd != cwd {
+            instance.cwd = cwd
+            instance.projectName = (cwd as NSString).lastPathComponent
+            instance.branchName = branchReader.readBranch(forDirectory: cwd)
+            instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
+        }
+    }
+
     // MARK: - State File Sync
 
-    private struct StateFile: Decodable {
+    struct StateFile: Decodable {
         struct Instance: Decodable {
             let status: String
             let pid: Int
@@ -148,33 +162,39 @@ final class InstanceManager {
         let instances: [String: Instance]
     }
 
-    private func syncFromStateFile() {
-        guard let data = FileManager.default.contents(atPath: Self.stateFilePath) else { return }
-        let stateFile: StateFile
-        do {
-            stateFile = try JSONDecoder().decode(StateFile.self, from: data)
-        } catch {
-            NSLog("InstanceManager: failed to decode state file: %@", "\(error)")
-            return
-        }
-
+    func sync(from stateFile: StateFile) {
         var activeCanonicalIds = Set<String>()
 
-        for (sessionId, inst) in stateFile.instances {
-            guard inst.pid > 0, isProcessAlive(pid: inst.pid) else { continue }
+        // Sort entries so already-known sessions are processed first,
+        // ensuring subagents resolve to existing canonical instances
+        let sortedEntries = stateFile.instances.sorted { a, b in
+            let aExists = self.instances[a.key] != nil
+            let bExists = self.instances[b.key] != nil
+            if aExists != bExists { return aExists }
+            return a.key < b.key
+        }
+
+        for (sessionId, inst) in sortedEntries {
+            guard inst.pid > 0 else {
+                NSLog("InstanceManager: state file entry '%@' has invalid PID %ld, skipping", sessionId, inst.pid)
+                continue
+            }
+            guard isProcessAlive(pid: inst.pid) else { continue }
 
             // PID dedup: use existing PID-holder's ID, or default to this session's ID
             let resolvedId = existingInstance(forPID: inst.pid)?.id ?? sessionId
             let isDedupedEntry = (resolvedId != sessionId)
             activeCanonicalIds.insert(resolvedId)
 
-            let status: InstanceStatus = inst.status == "active" ? .working : .idle
+            let status = mapStatus(inst.status)
 
             if let existing = instances[resolvedId] {
-                // Skip status transitions for deduped (subagent) entries
+                // Skip status transitions for deduped (subagent) entries —
+                // subagent status changes should not trigger attention alerts on the canonical instance
                 if !isDedupedEntry && existing.status != status {
                     applyStatusTransition(on: existing, newStatus: status)
                 }
+                existing.updatedAt = Date()
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
             } else {
                 let instance = ClaudeInstance(id: resolvedId, pid: inst.pid, cwd: inst.cwd, status: status)
@@ -186,7 +206,7 @@ final class InstanceManager {
 
         // Remove instances no longer in state file,
         // but keep recently-updated instances (socket events may be ahead of state file)
-        let staleThreshold = Date().addingTimeInterval(-5)
+        let staleThreshold = Date().addingTimeInterval(-Self.staleGracePeriod)
         let removedIds = Set(instances.keys).subtracting(activeCanonicalIds)
         for id in removedIds {
             if let instance = instances[id], instance.updatedAt > staleThreshold {
@@ -194,6 +214,23 @@ final class InstanceManager {
             }
             instances.removeValue(forKey: id)
         }
+    }
+
+    private func syncFromStateFile() {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: Self.stateFilePath) else { return }
+        guard let data = fileManager.contents(atPath: Self.stateFilePath) else {
+            NSLog("InstanceManager: state file exists but could not be read at %@", Self.stateFilePath)
+            return
+        }
+        let stateFile: StateFile
+        do {
+            stateFile = try JSONDecoder().decode(StateFile.self, from: data)
+        } catch {
+            NSLog("InstanceManager: failed to decode state file: %@", "\(error)")
+            return
+        }
+        sync(from: stateFile)
     }
 
     private func startStateFilePolling() {
@@ -221,9 +258,6 @@ final class InstanceManager {
     }
 
     func handleSocketEvent(_ event: SocketEvent) {
-        guard event.pid > 0 else { return }
-        let mappedStatus = mapStatus(event.status)
-
         if event.status == "ended" {
             // Remove by direct key match only. If the session_id isn't a key,
             // it's a subagent ending — the canonical instance should stay alive.
@@ -232,20 +266,27 @@ final class InstanceManager {
             return
         }
 
+        guard event.pid > 0 else {
+            NSLog("InstanceManager: dropping socket event with invalid PID %ld for session %@", event.pid, event.sessionId)
+            return
+        }
+        let mappedStatus = mapStatus(event.status)
+
         // Resolve target: direct session_id match, or PID-based dedup
-        let directMatch = instances[event.sessionId]
-        let pidMatch = directMatch == nil ? existingInstance(forPID: event.pid) : nil
-        let target = directMatch ?? pidMatch
+        let target = instances[event.sessionId] ?? existingInstance(forPID: event.pid)
+        let isDirectMatch = instances[event.sessionId] != nil
 
         if let existing = target {
-            // Only apply status transitions from the session's own events,
-            // not from subagent events (which would cause false attention alerts)
-            if pidMatch == nil && existing.status != mappedStatus {
+            // Only apply status transitions from the session's own events (isDirectMatch),
+            // not from subagent events resolved via PID (which would cause false attention alerts)
+            if isDirectMatch && existing.status != mappedStatus {
                 applyStatusTransition(on: existing, newStatus: mappedStatus)
             }
             existing.updatedAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
-            if let tty = event.tty { existing.tty = tty }
+            if isDirectMatch {
+                if let tty = event.tty { existing.tty = tty }
+            }
             if let tool = event.tool { existing.lastTool = tool }
         } else {
             let instance = ClaudeInstance(
@@ -261,7 +302,7 @@ final class InstanceManager {
 
     private func mapStatus(_ status: String) -> InstanceStatus {
         switch status {
-        case "processing", "running_tool", "compacting":
+        case "active", "processing", "running_tool", "compacting":
             return .working
         case "waiting_for_input", "waiting_for_approval":
             return .waitingInput
@@ -293,6 +334,11 @@ final class InstanceManager {
     }
 
     private nonisolated func isProcessAlive(pid: Int) -> Bool {
+        #if DEBUG
+        if let override = Self.testProcessAliveOverride {
+            return override(pid)
+        }
+        #endif
         guard kill(Int32(pid), 0) == 0 else { return false }
 
         var pathBuffer = [CChar](repeating: 0, count: 4096)
