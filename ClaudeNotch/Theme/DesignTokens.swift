@@ -27,6 +27,7 @@ enum NotchTokens {
         static let contextBarHeight: CGFloat = 3.5
         static let expandedCornerRadius: CGFloat = 16
         static let collapsedCornerRadius: CGFloat = 8
+        static let defaultCollapsedWidth: CGFloat = 220
     }
 
     enum ProjectGroup {
@@ -59,6 +60,10 @@ enum NotchTokens {
         static let contentReveal = SwiftUI.Animation.easeOut(duration: 0.25)
         static let frameDuration: Double = 0.4
         static let dismissDelay: Duration = .milliseconds(300)
+
+        static let selectionFlashDuration: Double = 0.6
+        static let selectionFadeIn: Double = 0.25
+        static let selectionFadeOut: Double = 0.5
 
         /// Returns a stagger delay for the given index, capping total stagger at 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {

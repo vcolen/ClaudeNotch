@@ -11,9 +11,9 @@ enum NotchMode: Equatable {
 final class PanelState {
     var mode: NotchMode = .collapsed
     var contentHeight: CGFloat = 12 // overridden by controller on init
-    var hasNotch: Bool
-    var notchHeight: CGFloat
-    var notchWidth: CGFloat
+    let hasNotch: Bool
+    let notchHeight: CGFloat
+    let notchWidth: CGFloat
 
     var isExpanded: Bool {
         get { mode == .expanded }
@@ -22,7 +22,7 @@ final class PanelState {
 
     var isNotification: Bool { mode == .notification }
 
-    init(hasNotch: Bool, notchHeight: CGFloat = 0, notchWidth: CGFloat = 220) {
+    init(hasNotch: Bool, notchHeight: CGFloat = 0, notchWidth: CGFloat = NotchTokens.Size.defaultCollapsedWidth) {
         self.hasNotch = hasNotch
         self.notchHeight = notchHeight
         self.notchWidth = notchWidth

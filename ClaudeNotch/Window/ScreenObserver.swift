@@ -4,7 +4,7 @@ import AppKit
 final class ScreenObserver {
     private var controllers: [CGDirectDisplayID: NotchPanelController] = [:]
     private let instanceManager: InstanceManager
-    private let notificationManager = NotificationManager()
+    private var syncTask: Task<Void, Never>?
 
     init(instanceManager: InstanceManager) {
         self.instanceManager = instanceManager
@@ -22,6 +22,9 @@ final class ScreenObserver {
     }
 
     func tearDown() {
+        syncTask?.cancel()
+        syncTask = nil
+
         NotificationCenter.default.removeObserver(
             self,
             name: NSApplication.didChangeScreenParametersNotification,
@@ -35,7 +38,12 @@ final class ScreenObserver {
     }
 
     @objc private func screensDidChange(_ notification: Notification) {
-        syncScreens()
+        syncTask?.cancel()
+        syncTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            self?.syncScreens()
+        }
     }
 
     private func syncScreens() {
@@ -47,8 +55,10 @@ final class ScreenObserver {
             guard let displayID = displayID(for: screen) else { continue }
             currentDisplayIDs.insert(displayID)
 
-            if controllers[displayID] == nil {
-                let controller = NotchPanelController(screen: screen, instanceManager: instanceManager, notificationManager: notificationManager)
+            if let existing = controllers[displayID] {
+                existing.updateScreen(screen)
+            } else {
+                let controller = NotchPanelController(screen: screen, instanceManager: instanceManager)
                 controllers[displayID] = controller
             }
         }
@@ -62,6 +72,12 @@ final class ScreenObserver {
     }
 
     private func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
-        screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        #if DEBUG
+        if id == nil {
+            print("[ScreenObserver] Failed to get displayID for screen: \(screen.localizedName)")
+        }
+        #endif
+        return id
     }
 }

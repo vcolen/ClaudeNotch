@@ -32,7 +32,7 @@ enum ITermIntegration {
 
     static func focusSession(tty: String?, pid: Int) async {
         guard isITermRunning() else {
-            print("Warning: iTerm2 is not running. Cannot focus session.")
+            NSLog("ITermIntegration: iTerm2 is not running, cannot focus session")
             return
         }
 
@@ -45,7 +45,7 @@ enum ITermIntegration {
         }.value
 
         guard let safeTTY = resolvedTTY else {
-            print("Warning: Could not resolve a valid TTY for pid \(pid).")
+            NSLog("ITermIntegration: could not resolve valid TTY for pid %d", pid)
             return
         }
 
@@ -73,7 +73,7 @@ enum ITermIntegration {
 
     static func launchNewInstance(in directory: String) {
         guard let safeDir = sanitizeDirectory(directory) else {
-            print("Warning: Invalid directory path: \(directory)")
+            NSLog("ITermIntegration: invalid directory path: %@", directory)
             return
         }
 
@@ -188,7 +188,7 @@ enum ITermIntegration {
         let script = NSAppleScript(source: source)
         script?.executeAndReturnError(&error)
         if let error {
-            print("AppleScript error: \(error)")
+            NSLog("ITermIntegration: AppleScript error: %@", "\(error)")
             return false
         }
         return true

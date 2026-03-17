@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class NotchPanelController {
     let panel: NotchPanel
-    let screen: NSScreen
+    private(set) var screen: NSScreen
     let panelState: PanelState
     let instanceManager: InstanceManager
     let notificationManager: NotificationManager
@@ -12,42 +12,31 @@ final class NotchPanelController {
     private let expandedWidth: CGFloat = 340
     private var observationTask: Task<Void, Never>?
 
-    init(screen: NSScreen, instanceManager: InstanceManager, notificationManager: NotificationManager) {
+    init(screen: NSScreen, instanceManager: InstanceManager) {
         self.screen = screen
         self.instanceManager = instanceManager
-        self.notificationManager = notificationManager
+        self.notificationManager = NotificationManager()
 
-        let hasNotch = screen.safeAreaInsets.top > 0
-        let notchHeight = screen.safeAreaInsets.top
-
-        let notchWidth: CGFloat
-        if hasNotch,
-           let leftArea = screen.auxiliaryTopLeftArea,
-           let rightArea = screen.auxiliaryTopRightArea {
-            notchWidth = rightArea.minX - leftArea.maxX
-        } else {
-            notchWidth = 220
-        }
+        let geo = ScreenGeometry(screen: screen)
 
         self.panelState = PanelState(
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            notchWidth: notchWidth
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            notchWidth: geo.notchWidth
         )
 
-        // Set initial collapsed height based on current instances
         panelState.contentHeight = CollapsedNotchView.contentHeight(
             instanceCount: instanceManager.instances.count,
-            maxWidth: notchWidth
+            maxWidth: geo.notchWidth
         )
 
         let initialFrame = Self.computeFrame(
             screen: screen,
             mode: .collapsed,
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            collapsedWidth: notchWidth,
-            expandedWidth: 340,
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            collapsedWidth: geo.notchWidth,
+            expandedWidth: expandedWidth,
             contentHeight: panelState.contentHeight
         )
         self.panel = NotchPanel(contentRect: initialFrame)
@@ -92,8 +81,11 @@ final class NotchPanelController {
             onSelectInstance: { [weak instanceManager] instance in
                 guard let instanceManager else { return }
                 instanceManager.clearAttention(for: instance.id)
-                Task {
+                Task { @MainActor in
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                    // Brief delay for iTerm's window to come to front; we need the window number to position the glow behind it
+                    try? await Task.sleep(for: .milliseconds(150))
+                    WindowHighlighter.flashiTermWindow()
                 }
             }
         )
@@ -131,6 +123,8 @@ final class NotchPanelController {
             expandedWidth: expandedWidth,
             contentHeight: panelState.contentHeight
         )
+
+        guard panel.frame != frame else { return }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NotchTokens.Animation.frameDuration
@@ -191,9 +185,48 @@ final class NotchPanelController {
         }
     }
 
+    func updateScreen(_ newScreen: NSScreen) {
+        screen = newScreen
+        let geo = ScreenGeometry(screen: newScreen)
+
+        panelState.hasNotch = geo.hasNotch
+        panelState.notchHeight = geo.notchHeight
+        panelState.notchWidth = geo.notchWidth
+
+        if panelState.mode == .collapsed {
+            panelState.contentHeight = CollapsedNotchView.contentHeight(
+                instanceCount: instanceManager.instances.count,
+                maxWidth: geo.notchWidth
+            )
+        }
+
+        animateFrameUpdate()
+    }
+
     func tearDown() {
         observationTask?.cancel()
         observationTask = nil
         panel.orderOut(nil)
+    }
+
+    private struct ScreenGeometry {
+        let hasNotch: Bool
+        let notchHeight: CGFloat
+        let notchWidth: CGFloat
+
+        init(screen: NSScreen) {
+            hasNotch = screen.safeAreaInsets.top > 0
+            notchHeight = screen.safeAreaInsets.top
+            if hasNotch,
+               let leftArea = screen.auxiliaryTopLeftArea,
+               let rightArea = screen.auxiliaryTopRightArea {
+                notchWidth = rightArea.minX - leftArea.maxX
+            } else if hasNotch {
+                assertionFailure("Screen has notch but no auxiliary top areas")
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
+            } else {
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
+            }
+        }
     }
 }
