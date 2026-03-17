@@ -42,6 +42,7 @@ struct StatusDot: View {
             .shadow(color: secondaryShadowColor, radius: 2)
             .scaleEffect(isPulsing && shouldWorkingPulse ? 1.12 : 1.0)
             .opacity(dotOpacity)
+            .transaction { $0.animation = nil }
             .animation(
                 shouldWorkingPulse && !reduceMotion
                     ? .easeInOut(duration: 1.1).repeatForever(autoreverses: true)
