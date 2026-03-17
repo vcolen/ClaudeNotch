@@ -47,11 +47,15 @@ enum WindowHighlighter {
             transform: nil
         )
 
-        container.layer?.shadowColor = glowNSColor.cgColor
-        container.layer?.shadowOpacity = 0.55
-        container.layer?.shadowRadius = 20
-        container.layer?.shadowOffset = .zero
-        container.layer?.shadowPath = shapePath
+        let glow = CALayer()
+        glow.frame = NSRect(origin: .zero, size: glowFrame.size)
+        glow.shadowColor = glowNSColor.cgColor
+        glow.shadowOpacity = 0.55
+        glow.shadowRadius = 20
+        glow.shadowOffset = .zero
+        glow.shadowPath = shapePath
+
+        container.layer?.addSublayer(glow)
         window.contentView = container
 
         // Start invisible, animate in
