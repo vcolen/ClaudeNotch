@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !isRunningTests else { return }
+
         instanceManager = InstanceManager()
         screenObserver = ScreenObserver(instanceManager: instanceManager)
         screenObserver.setup()
@@ -111,6 +113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         signal(SIGTERM, signalCallback)
         signal(SIGINT, signalCallback)
+    }
+
+    // MARK: - Test Detection
+
+    private var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     // MARK: - Cleanup

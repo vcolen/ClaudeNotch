@@ -98,6 +98,9 @@ final class InstanceManager {
     private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
         let previousStatus = instance.status
         instance.status = newStatus
+        // needsAttention is set when leaving .working and cleared when entering .working.
+        // It intentionally persists across non-working transitions (e.g. waitingInput → idle)
+        // so the notification stays visible until the user explicitly clears it.
         if previousStatus == .working && newStatus != .working {
             instance.needsAttention = true
         } else if newStatus == .working {
@@ -108,9 +111,9 @@ final class InstanceManager {
     init(skipBootstrap: Bool = false) {
         if !skipBootstrap {
             syncFromStateFile()
+            startStalePIDSweep()
+            startStateFilePolling()
         }
-        startStalePIDSweep()
-        startStateFilePolling()
     }
 
     func cleanup() {
@@ -147,6 +150,14 @@ final class InstanceManager {
             guard isProcessAlive(pid: inst.pid) else { continue }
             fileSessionIds.insert(sessionId)
 
+            // Validate cwd like handleSocketEvent does
+            let cwd: String
+            if inst.cwd.count <= 512, inst.cwd.hasPrefix("/") {
+                cwd = inst.cwd
+            } else {
+                cwd = "/tmp"
+            }
+
             let status: InstanceStatus = inst.status == "active" ? .working : .idle
 
             if let existing = instances[sessionId] {
@@ -156,16 +167,17 @@ final class InstanceManager {
                 if existing.pid != inst.pid {
                     existing.pid = inst.pid
                 }
-                if existing.cwd != inst.cwd {
-                    existing.cwd = inst.cwd
-                    existing.projectName = (inst.cwd as NSString).lastPathComponent
-                    existing.branchName = branchReader.readBranch(forDirectory: inst.cwd)
+                if existing.cwd != cwd {
+                    existing.cwd = cwd
+                    existing.projectName = String((cwd as NSString).lastPathComponent.prefix(100))
+                    existing.branchName = branchReader.readBranch(forDirectory: cwd).map { String($0.prefix(100)) }
                 }
             } else {
                 // New instance
-                let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
-                instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
-                instance.remoteURL = branchReader.readRemoteURL(forDirectory: inst.cwd)
+                let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: cwd, status: status)
+                instance.projectName = String(instance.projectName.prefix(100))
+                instance.branchName = branchReader.readBranch(forDirectory: cwd).map { String($0.prefix(100)) }
+                instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
                 instances[sessionId] = instance
             }
         }

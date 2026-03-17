@@ -6,7 +6,7 @@ import Observation
 final class NotificationManager {
     private(set) var currentItem: NotificationItem?
     private(set) var queue: [NotificationItem] = []
-    private(set) var queueCount: Int = 0
+    var queueCount: Int { queue.count }
     private(set) var currentIndex: Int = 0
 
     private var lifecycleTask: Task<Void, Never>?
@@ -20,7 +20,6 @@ final class NotificationManager {
             return
         }
         queue = items
-        queueCount = items.count
         currentIndex = 0
         currentItem = items[0]
         lifecycleTask?.cancel()
@@ -30,7 +29,7 @@ final class NotificationManager {
                 : NotchTokens.Notification.dismissTimeout
             try? await Task.sleep(for: firstDisplayTime)
 
-            // After sleep, queue may have been modified — check bounds
+            // After sleep, queue may have been modified — use while loop for safe bounds checking
             var nextIndex = 1
             while nextIndex < queue.count {
                 guard !Task.isCancelled else { return }
@@ -44,31 +43,34 @@ final class NotificationManager {
         }
     }
 
+    func updateItems(_ items: [NotificationItem]) {
+        guard !items.isEmpty else { return }
+        for item in items {
+            if let idx = queue.firstIndex(where: { $0.instanceId == item.instanceId }) {
+                queue[idx] = item
+                if currentItem?.instanceId == item.instanceId {
+                    currentItem = item
+                }
+            }
+        }
+    }
+
     func dismiss() {
-        lifecycleTask?.cancel()
-        lifecycleTask = nil
-        currentItem = nil
-        queue = []
-        queueCount = 0
-        currentIndex = 0
+        cleanup()
         onDismiss?()
     }
 
     func removeInstance(id: String) {
         queue.removeAll { $0.instanceId == id }
-        queueCount = queue.count
-        if currentItem?.instanceId == id {
-            if queue.isEmpty {
-                dismiss()
-                return
-            }
-            let nextIndex = min(currentIndex, queue.count - 1)
-            currentIndex = nextIndex
-            currentItem = queue[nextIndex]
-        }
+
         if queue.isEmpty {
             dismiss()
+            return
         }
+
+        // Always clamp currentIndex after any removal
+        currentIndex = min(currentIndex, queue.count - 1)
+        currentItem = queue[currentIndex]
     }
 
     func cleanup() {
@@ -76,7 +78,6 @@ final class NotificationManager {
         lifecycleTask = nil
         currentItem = nil
         queue = []
-        queueCount = 0
         currentIndex = 0
     }
 }

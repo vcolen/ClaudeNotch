@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import ClaudeNotch
 
-@MainActor
 @Suite("NotificationManager Tests")
 struct NotificationManagerTests {
 
@@ -16,7 +15,7 @@ struct NotificationManagerTests {
     // MARK: - Show/Dismiss Lifecycle
 
     @Test("showNotifications sets currentItem and queue")
-    func showSetsCurrentAndQueue() {
+    @MainActor func showSetsCurrentAndQueue() {
         let manager = NotificationManager()
         let items = [makeItem(id: "a"), makeItem(id: "b")]
         manager.showNotifications(items)
@@ -26,7 +25,7 @@ struct NotificationManagerTests {
     }
 
     @Test("showNotifications with empty array dismisses")
-    func showEmptyDismisses() {
+    @MainActor func showEmptyDismisses() {
         let manager = NotificationManager()
         manager.showNotifications([makeItem()])
         manager.showNotifications([])
@@ -35,7 +34,7 @@ struct NotificationManagerTests {
     }
 
     @Test("dismiss clears all state")
-    func dismissClearsState() {
+    @MainActor func dismissClearsState() {
         let manager = NotificationManager()
         manager.showNotifications([makeItem()])
         manager.dismiss()
@@ -46,7 +45,7 @@ struct NotificationManagerTests {
     }
 
     @Test("dismiss calls onDismiss callback")
-    func dismissCallsCallback() {
+    @MainActor func dismissCallsCallback() {
         let manager = NotificationManager()
         var dismissed = false
         manager.onDismiss = { dismissed = true }
@@ -58,7 +57,7 @@ struct NotificationManagerTests {
     // MARK: - Remove Instance
 
     @Test("removeInstance removes from queue")
-    func removeInstanceRemovesFromQueue() {
+    @MainActor func removeInstanceRemovesFromQueue() {
         let manager = NotificationManager()
         let items = [makeItem(id: "a"), makeItem(id: "b"), makeItem(id: "c")]
         manager.showNotifications(items)
@@ -68,7 +67,7 @@ struct NotificationManagerTests {
     }
 
     @Test("removeInstance of current item advances to next")
-    func removeCurrentAdvancesToNext() {
+    @MainActor func removeCurrentAdvancesToNext() {
         let manager = NotificationManager()
         let items = [makeItem(id: "a"), makeItem(id: "b")]
         manager.showNotifications(items)
@@ -78,7 +77,7 @@ struct NotificationManagerTests {
     }
 
     @Test("removeInstance of last item dismisses")
-    func removeLastDismisses() {
+    @MainActor func removeLastDismisses() {
         let manager = NotificationManager()
         var dismissed = false
         manager.onDismiss = { dismissed = true }
@@ -89,7 +88,7 @@ struct NotificationManagerTests {
     }
 
     @Test("removeInstance with nonexistent ID is safe")
-    func removeNonexistentIsSafe() {
+    @MainActor func removeNonexistentIsSafe() {
         let manager = NotificationManager()
         manager.showNotifications([makeItem(id: "a")])
         manager.removeInstance(id: "nonexistent")
@@ -100,7 +99,7 @@ struct NotificationManagerTests {
     // MARK: - Cleanup
 
     @Test("cleanup resets all state without calling onDismiss")
-    func cleanupResetsWithoutCallback() {
+    @MainActor func cleanupResetsWithoutCallback() {
         let manager = NotificationManager()
         var dismissed = false
         manager.onDismiss = { dismissed = true }
@@ -114,7 +113,7 @@ struct NotificationManagerTests {
     // MARK: - Replacing notifications
 
     @Test("showNotifications replaces existing queue")
-    func showReplacesExisting() {
+    @MainActor func showReplacesExisting() {
         let manager = NotificationManager()
         manager.showNotifications([makeItem(id: "old")])
         #expect(manager.currentItem?.instanceId == "old")
@@ -122,14 +121,137 @@ struct NotificationManagerTests {
         #expect(manager.currentItem?.instanceId == "new1")
         #expect(manager.queueCount == 2)
     }
+
+    // MARK: - removeInstance clamping
+
+    @Test("removeInstance clamps currentIndex when non-current item before current is removed")
+    @MainActor func removeNonCurrentClampsIndex() {
+        let manager = NotificationManager()
+        let items = [makeItem(id: "a"), makeItem(id: "b"), makeItem(id: "c")]
+        manager.showNotifications(items)
+        // Simulate being at index 2 by manipulating through removal
+        // After show, currentIndex=0 showing "a". We can't directly set currentIndex,
+        // so test that removing items doesn't cause out-of-bounds access
+        manager.removeInstance(id: "a")
+        // After removing "a": queue is [b, c], currentIndex should be clamped
+        #expect(manager.currentItem != nil)
+        #expect(manager.queue.count == 2)
+        #expect(manager.currentIndex <= manager.queue.count - 1)
+    }
+
+    @Test("removeInstance of item before current adjusts index correctly")
+    @MainActor func removeBeforeCurrentAdjusts() {
+        let manager = NotificationManager()
+        let items = [makeItem(id: "a"), makeItem(id: "b"), makeItem(id: "c")]
+        manager.showNotifications(items)
+        // Remove non-current, non-displayed item
+        manager.removeInstance(id: "b")
+        #expect(manager.queue.count == 2)
+        #expect(manager.currentItem?.instanceId == "a")
+        #expect(manager.currentIndex == 0)
+    }
+
+    // MARK: - updateItems
+
+    @Test("updateItems replaces items without resetting currentIndex")
+    @MainActor func updateItemsPreservesPosition() {
+        let manager = NotificationManager()
+        let items = [makeItem(id: "a", project: "old-proj"), makeItem(id: "b", project: "old-proj2")]
+        manager.showNotifications(items)
+
+        let updatedItems = [
+            NotificationItem(instanceId: "a", projectName: "new-proj", branchName: "main", terminalIndex: 5, tty: "/dev/ttys001", pid: 100),
+            NotificationItem(instanceId: "b", projectName: "new-proj2", branchName: "main", terminalIndex: 3, tty: "/dev/ttys002", pid: 200)
+        ]
+        manager.updateItems(updatedItems)
+
+        #expect(manager.currentIndex == 0)
+        #expect(manager.currentItem?.projectName == "new-proj")
+        #expect(manager.currentItem?.terminalIndex == 5)
+        #expect(manager.queue[1].projectName == "new-proj2")
+    }
+
+    @Test("updateItems with empty array is no-op")
+    @MainActor func updateItemsEmptyNoOp() {
+        let manager = NotificationManager()
+        manager.showNotifications([makeItem(id: "a")])
+        manager.updateItems([])
+        #expect(manager.currentItem?.instanceId == "a")
+        #expect(manager.queue.count == 1)
+    }
+
+    @Test("updateItems with unknown IDs doesn't change queue")
+    @MainActor func updateItemsUnknownIds() {
+        let manager = NotificationManager()
+        manager.showNotifications([makeItem(id: "a")])
+        let unknownItems = [makeItem(id: "z", project: "unknown")]
+        manager.updateItems(unknownItems)
+        #expect(manager.queue.count == 1)
+        #expect(manager.currentItem?.instanceId == "a")
+    }
+
+    // MARK: - queueCount consistency
+
+    @Test("queueCount always matches queue.count")
+    @MainActor func queueCountConsistent() {
+        let manager = NotificationManager()
+        #expect(manager.queueCount == 0)
+        manager.showNotifications([makeItem(id: "a"), makeItem(id: "b")])
+        #expect(manager.queueCount == 2)
+        manager.removeInstance(id: "a")
+        #expect(manager.queueCount == 1)
+        manager.dismiss()
+        #expect(manager.queueCount == 0)
+    }
+
+    // MARK: - Callback integration
+
+    @Test("onDismiss callback fires exactly once on dismiss")
+    @MainActor func onDismissFiresOnce() {
+        let manager = NotificationManager()
+        var callCount = 0
+        manager.onDismiss = { callCount += 1 }
+        manager.showNotifications([makeItem()])
+        manager.dismiss()
+        #expect(callCount == 1)
+    }
+
+    @Test("onTap callback receives correct item")
+    @MainActor func onTapReceivesItem() {
+        let manager = NotificationManager()
+        var tappedId: String?
+        manager.onTap = { item in tappedId = item.instanceId }
+        let item = makeItem(id: "tap-test")
+        manager.showNotifications([item])
+        manager.onTap?(manager.currentItem!)
+        #expect(tappedId == "tap-test")
+    }
+
+    // MARK: - Multiple sequential removes
+
+    @Test("multiple sequential removes handle correctly")
+    @MainActor func multipleSequentialRemoves() {
+        let manager = NotificationManager()
+        let items = [makeItem(id: "a"), makeItem(id: "b"), makeItem(id: "c"), makeItem(id: "d")]
+        manager.showNotifications(items)
+        manager.removeInstance(id: "b")
+        #expect(manager.queue.count == 3)
+        manager.removeInstance(id: "d")
+        #expect(manager.queue.count == 2)
+        manager.removeInstance(id: "a")
+        #expect(manager.queue.count == 1)
+        #expect(manager.currentItem?.instanceId == "c")
+        manager.removeInstance(id: "c")
+        #expect(manager.currentItem == nil)
+        #expect(manager.queue.isEmpty)
+    }
 }
 
-@MainActor
 @Suite("PanelState Tests")
 struct PanelStateTests {
 
     @Test("Initial mode is collapsed")
-    func initialModeCollapsed() {
+    @MainActor func initialModeCollapsed() {
         let state = PanelState(hasNotch: true, notchHeight: 37)
         #expect(state.mode == .collapsed)
         #expect(state.isExpanded == false)
@@ -137,7 +259,7 @@ struct PanelStateTests {
     }
 
     @Test("isExpanded getter returns true only for expanded mode")
-    func isExpandedGetter() {
+    @MainActor func isExpandedGetter() {
         let state = PanelState(hasNotch: true)
         state.mode = .collapsed
         #expect(state.isExpanded == false)
@@ -148,7 +270,7 @@ struct PanelStateTests {
     }
 
     @Test("isExpanded setter maps true to expanded, false to collapsed")
-    func isExpandedSetter() {
+    @MainActor func isExpandedSetter() {
         let state = PanelState(hasNotch: true)
         state.isExpanded = true
         #expect(state.mode == .expanded)
@@ -157,7 +279,7 @@ struct PanelStateTests {
     }
 
     @Test("isNotification returns true only for notification mode")
-    func isNotificationGetter() {
+    @MainActor func isNotificationGetter() {
         let state = PanelState(hasNotch: true)
         state.mode = .notification
         #expect(state.isNotification == true)
@@ -166,7 +288,7 @@ struct PanelStateTests {
     }
 
     @Test("Mode transitions: collapsed -> notification -> collapsed")
-    func collapsedNotificationCollapsed() {
+    @MainActor func collapsedNotificationCollapsed() {
         let state = PanelState(hasNotch: true)
         #expect(state.mode == .collapsed)
         state.mode = .notification
@@ -176,7 +298,7 @@ struct PanelStateTests {
     }
 
     @Test("Mode transitions: collapsed -> notification -> expanded -> collapsed")
-    func fullTransitionCycle() {
+    @MainActor func fullTransitionCycle() {
         let state = PanelState(hasNotch: true)
         state.mode = .notification
         #expect(state.isNotification)
@@ -187,10 +309,68 @@ struct PanelStateTests {
     }
 
     @Test("Setting isExpanded from notification mode goes to expanded")
-    func isExpandedFromNotification() {
+    @MainActor func isExpandedFromNotification() {
         let state = PanelState(hasNotch: true)
         state.mode = .notification
         state.isExpanded = true
         #expect(state.mode == .expanded)
+    }
+}
+
+@Suite("NotificationBannerView Subtitle Tests")
+struct NotificationBannerSubtitleTests {
+
+    @Test("subtitle with terminal index and branch")
+    func subtitleWithIndexAndBranch() {
+        let item = NotificationItem(
+            instanceId: "1", projectName: "my-project", branchName: "main",
+            terminalIndex: 3, tty: "/dev/ttys001", pid: 100
+        )
+        let text = Self.subtitleText(for: item)
+        #expect(text == "Terminal 3 \u{00B7} my-project / main")
+    }
+
+    @Test("subtitle without terminal index")
+    func subtitleWithoutIndex() {
+        let item = NotificationItem(
+            instanceId: "1", projectName: "my-project", branchName: "feature/auth",
+            terminalIndex: nil, tty: nil, pid: 100
+        )
+        let text = Self.subtitleText(for: item)
+        #expect(text == "my-project / feature/auth")
+    }
+
+    @Test("subtitle without branch")
+    func subtitleWithoutBranch() {
+        let item = NotificationItem(
+            instanceId: "1", projectName: "my-project", branchName: nil,
+            terminalIndex: 2, tty: "/dev/ttys001", pid: 100
+        )
+        let text = Self.subtitleText(for: item)
+        #expect(text == "Terminal 2 \u{00B7} my-project")
+    }
+
+    @Test("subtitle with neither terminal index nor branch")
+    func subtitleWithNeither() {
+        let item = NotificationItem(
+            instanceId: "1", projectName: "my-project", branchName: nil,
+            terminalIndex: nil, tty: nil, pid: 100
+        )
+        let text = Self.subtitleText(for: item)
+        #expect(text == "my-project")
+    }
+
+    // Mirror the private subtitleText logic from NotificationBannerView for testing
+    private static func subtitleText(for item: NotificationItem) -> String {
+        var parts: [String] = []
+        if let index = item.terminalIndex {
+            parts.append("Terminal \(index)")
+        }
+        var projectPart = item.projectName
+        if let branch = item.branchName {
+            projectPart += " / \(branch)"
+        }
+        parts.append(projectPart)
+        return parts.joined(separator: " \u{00B7} ")
     }
 }
