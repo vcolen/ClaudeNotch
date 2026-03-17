@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 final class NotchPanel: NSPanel {
     private weak var hostingLayer: CALayer?
 
@@ -23,7 +27,7 @@ final class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func setContent(_ view: some View) {
-        let hostingView = NSHostingView(rootView: view)
+        let hostingView = ClickThroughHostingView(rootView: view)
         hostingView.wantsLayer = true
         hostingView.layer?.isOpaque = false
         hostingView.layer?.backgroundColor = CGColor.clear
