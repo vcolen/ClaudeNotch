@@ -465,6 +465,169 @@ struct InstanceManagerTests {
         #expect(manager.needsAttentionCount == 0)
     }
 
+    // MARK: - PID Deduplication
+
+    @Test("Same PID socket events are deduplicated")
+    func samePidSocketEventsAreDeduplicated() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["parent"] != nil)
+    }
+
+    @Test("Subagent does NOT override canonical status")
+    func subagentDoesNotOverrideCanonicalStatus() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["parent"]?.status == .working)
+        #expect(manager.instances["parent"]?.needsAttention == false)
+
+        // Subagent sends waiting_for_input — should NOT change parent status
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["parent"]?.status == .working)
+        #expect(manager.instances["parent"]?.needsAttention == false)
+    }
+
+    @Test("Subagent updates metadata (tool, tty)")
+    func subagentUpdatesMetadata() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: "/dev/ttys005", tool: "Grep"
+        ))
+        #expect(manager.instances["parent"]?.tty == "/dev/ttys005")
+        #expect(manager.instances["parent"]?.lastTool == "Grep")
+    }
+
+    @Test("Subagent 'ended' does not remove canonical")
+    func subagentEndedDoesNotRemoveCanonical() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // End the subagent — parent should survive
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent1", pid: 200, cwd: "/tmp/project",
+            status: "ended", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["parent"] != nil)
+    }
+
+    @Test("Canonical 'ended' removes instance even with subagent history")
+    func canonicalEndedRemovesInstance() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Subagent deduped into parent
+        manager.handleSocketEvent(.init(
+            sessionId: "sub1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+
+        // Canonical session ends
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "ended", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.isEmpty)
+    }
+
+    @Test("Different PIDs remain separate")
+    func differentPidsRemainSeparate() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 200, cwd: "/tmp/project1",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 201, cwd: "/tmp/project2",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 2)
+    }
+
+    @Test("PID reuse after session ends creates fresh instance")
+    func pidReuseAfterSessionEndsCreatesFresh() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 200, cwd: "/tmp/project",
+            status: "ended", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.isEmpty)
+
+        // New session reuses same PID
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["s2"] != nil)
+    }
+
+    @Test("Multiple subagents deduplicate to one instance")
+    func multipleSubagentsDeduplicate() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "sub1", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "sub2", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["parent"] != nil)
+    }
+
+    @Test("PID 0 does not cause false dedup")
+    func pidZeroDoesNotCauseFalseDedup() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 0, cwd: "/tmp/a",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 0, cwd: "/tmp/b",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // PID 0 events are rejected by the guard
+        #expect(manager.instances.isEmpty)
+    }
+
     @Test("Counts exclude attention instances")
     func countsExcludeAttentionInstances() {
         let manager = InstanceManager(skipBootstrap: true)

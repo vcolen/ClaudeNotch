@@ -8,6 +8,24 @@ final class InstanceManager {
     var instances: [String: ClaudeInstance] = [:]
     var isExpanded = false
 
+    /// Returns the existing instance that shares the given PID, if any.
+    /// Guards against PID 0 which has special kill() semantics.
+    private func existingInstance(forPID pid: Int) -> ClaudeInstance? {
+        guard pid > 0 else { return nil }
+        return instances.values.first { $0.pid == pid }
+    }
+
+    /// Shared metadata update logic for both socket events and state file sync.
+    private func updateInstanceMetadata(_ instance: ClaudeInstance, pid: Int, cwd: String) {
+        if instance.pid != pid { instance.pid = pid }
+        if instance.cwd != cwd {
+            instance.cwd = cwd
+            instance.projectName = (cwd as NSString).lastPathComponent
+            instance.branchName = branchReader.readBranch(forDirectory: cwd)
+            instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
+        }
+    }
+
     private var staleSweepTask: Task<Void, Never>?
     private var costPollTask: Task<Void, Never>?
     private var stateFilePollTask: Task<Void, Never>?
@@ -140,39 +158,40 @@ final class InstanceManager {
             return
         }
 
-        // Track which sessions are in the file
-        var fileSessionIds = Set<String>()
+        var activeCanonicalIds = Set<String>()
 
         for (sessionId, inst) in stateFile.instances {
-            guard isProcessAlive(pid: inst.pid) else { continue }
-            fileSessionIds.insert(sessionId)
+            guard inst.pid > 0, isProcessAlive(pid: inst.pid) else { continue }
+
+            // PID dedup: use existing PID-holder's ID, or default to this session's ID
+            let resolvedId = existingInstance(forPID: inst.pid)?.id ?? sessionId
+            let isDedupedEntry = (resolvedId != sessionId)
+            activeCanonicalIds.insert(resolvedId)
 
             let status: InstanceStatus = inst.status == "active" ? .working : .idle
 
-            if let existing = instances[sessionId] {
-                if existing.status != status {
+            if let existing = instances[resolvedId] {
+                // Skip status transitions for deduped (subagent) entries
+                if !isDedupedEntry && existing.status != status {
                     applyStatusTransition(on: existing, newStatus: status)
                 }
-                if existing.pid != inst.pid {
-                    existing.pid = inst.pid
-                }
-                if existing.cwd != inst.cwd {
-                    existing.cwd = inst.cwd
-                    existing.projectName = (inst.cwd as NSString).lastPathComponent
-                    existing.branchName = branchReader.readBranch(forDirectory: inst.cwd)
-                }
+                updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
             } else {
-                // New instance
-                let instance = ClaudeInstance(id: sessionId, pid: inst.pid, cwd: inst.cwd, status: status)
+                let instance = ClaudeInstance(id: resolvedId, pid: inst.pid, cwd: inst.cwd, status: status)
                 instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
                 instance.remoteURL = branchReader.readRemoteURL(forDirectory: inst.cwd)
-                instances[sessionId] = instance
+                instances[resolvedId] = instance
             }
         }
 
-        // Remove instances that are no longer in the state file
-        let removedIds = Set(instances.keys).subtracting(fileSessionIds)
+        // Remove instances no longer in state file,
+        // but keep recently-updated instances (socket events may be ahead of state file)
+        let staleThreshold = Date().addingTimeInterval(-5)
+        let removedIds = Set(instances.keys).subtracting(activeCanonicalIds)
         for id in removedIds {
+            if let instance = instances[id], instance.updatedAt > staleThreshold {
+                continue
+            }
             instances.removeValue(forKey: id)
         }
     }
@@ -202,42 +221,40 @@ final class InstanceManager {
     }
 
     func handleSocketEvent(_ event: SocketEvent) {
+        guard event.pid > 0 else { return }
         let mappedStatus = mapStatus(event.status)
+
         if event.status == "ended" {
+            // Remove by direct key match only. If the session_id isn't a key,
+            // it's a subagent ending — the canonical instance should stay alive.
+            // The stale PID sweep handles cleanup when the process truly dies.
             instances.removeValue(forKey: event.sessionId)
             return
         }
 
-        if let existing = instances[event.sessionId] {
-            applyStatusTransition(on: existing, newStatus: mappedStatus)
-            existing.updatedAt = Date()
-            existing.pid = event.pid
+        // Resolve target: direct session_id match, or PID-based dedup
+        let directMatch = instances[event.sessionId]
+        let pidMatch = directMatch == nil ? existingInstance(forPID: event.pid) : nil
+        let target = directMatch ?? pidMatch
 
-            if existing.cwd != event.cwd {
-                existing.cwd = event.cwd
-                existing.projectName = (event.cwd as NSString).lastPathComponent
-                existing.branchName = branchReader.readBranch(forDirectory: event.cwd)
-                existing.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
+        if let existing = target {
+            // Only apply status transitions from the session's own events,
+            // not from subagent events (which would cause false attention alerts)
+            if pidMatch == nil && existing.status != mappedStatus {
+                applyStatusTransition(on: existing, newStatus: mappedStatus)
             }
-            if let tty = event.tty {
-                existing.tty = tty
-            }
-            if let tool = event.tool {
-                existing.lastTool = tool
-            }
+            existing.updatedAt = Date()
+            updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
+            if let tty = event.tty { existing.tty = tty }
+            if let tool = event.tool { existing.lastTool = tool }
         } else {
             let instance = ClaudeInstance(
-                id: event.sessionId,
-                pid: event.pid,
-                cwd: event.cwd,
-                status: mappedStatus,
-                tty: event.tty
+                id: event.sessionId, pid: event.pid, cwd: event.cwd,
+                status: mappedStatus, tty: event.tty
             )
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
-            if let tool = event.tool {
-                instance.lastTool = tool
-            }
+            if let tool = event.tool { instance.lastTool = tool }
             instances[event.sessionId] = instance
         }
     }
