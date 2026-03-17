@@ -29,15 +29,18 @@ struct NotchView: View {
                     .frame(height: panelState.notchHeight)
             }
 
-            if panelState.isExpanded {
-                expandedContent
-                    .transition(.opacity)
-            } else {
+            ZStack(alignment: .top) {
+                if panelState.isExpanded {
+                    expandedContent
+                        .transition(.opacity)
+                }
+
                 collapsedContent
-                    .transition(.opacity)
+                    .opacity(panelState.isExpanded ? 0 : 1)
             }
+            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
             ZStack {
                 if panelState.isExpanded {
@@ -77,7 +80,7 @@ struct NotchView: View {
                 }
             }
         }
-        .animation(NotchTokens.Animation.expandSpring, value: panelState.isExpanded)
+        .animation(.easeInOut(duration: NotchTokens.Animation.frameDuration), value: panelState.isExpanded)
         .onChange(of: instanceManager.instances.count) { _, newCount in
             if !panelState.isExpanded {
                 panelState.contentHeight = CollapsedNotchView.contentHeight(
