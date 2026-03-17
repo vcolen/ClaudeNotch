@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class NotchPanelController {
     let panel: NotchPanel
-    let screen: NSScreen
+    private(set) var screen: NSScreen
     let panelState: PanelState
     let instanceManager: InstanceManager
 
@@ -15,38 +15,24 @@ final class NotchPanelController {
         self.screen = screen
         self.instanceManager = instanceManager
 
-        let hasNotch = screen.safeAreaInsets.top > 0
-        let notchHeight = screen.safeAreaInsets.top
-
-        let notchWidth: CGFloat
-        if hasNotch,
-           let leftArea = screen.auxiliaryTopLeftArea,
-           let rightArea = screen.auxiliaryTopRightArea {
-            notchWidth = rightArea.minX - leftArea.maxX
-        } else {
-            notchWidth = 220
-        }
+        let geo = ScreenGeometry(screen: screen)
 
         self.panelState = PanelState(
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            notchWidth: notchWidth
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            notchWidth: geo.notchWidth
         )
 
-        // Set initial collapsed height based on current instances
         panelState.contentHeight = CollapsedNotchView.contentHeight(
             instanceCount: instanceManager.instances.count,
-            maxWidth: notchWidth
+            maxWidth: geo.notchWidth
         )
 
-        let initialFrame = Self.computeFrame(
-            screen: screen,
-            expanded: false,
-            hasNotch: hasNotch,
-            notchHeight: notchHeight,
-            collapsedWidth: notchWidth,
-            expandedWidth: expandedWidth,
-            contentHeight: panelState.contentHeight
+        let initialFrame = NSRect(
+            x: screen.frame.midX - geo.notchWidth / 2,
+            y: screen.frame.maxY - (geo.notchHeight + panelState.contentHeight),
+            width: geo.notchWidth,
+            height: geo.notchHeight + panelState.contentHeight
         )
         self.panel = NotchPanel(contentRect: initialFrame)
 
@@ -99,15 +85,12 @@ final class NotchPanelController {
     }
 
     private func animateFrameUpdate() {
-        let frame = Self.computeFrame(
-            screen: screen,
-            expanded: panelState.isExpanded,
-            hasNotch: panelState.hasNotch,
-            notchHeight: panelState.notchHeight,
-            collapsedWidth: panelState.notchWidth,
-            expandedWidth: expandedWidth,
-            contentHeight: panelState.contentHeight
-        )
+        let frame = currentFrame()
+
+        panel.hasShadow = panelState.isExpanded
+        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
+
+        guard panel.frame != frame else { return }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NotchTokens.Animation.frameDuration
@@ -115,37 +98,62 @@ final class NotchPanelController {
             context.allowsImplicitAnimation = true
             self.panel.animator().setFrame(frame, display: true)
         }
-
-        panel.hasShadow = panelState.isExpanded
-        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
     }
 
-    private static func computeFrame(
-        screen: NSScreen,
-        expanded: Bool,
-        hasNotch: Bool,
-        notchHeight: CGFloat,
-        collapsedWidth: CGFloat,
-        expandedWidth: CGFloat,
-        contentHeight: CGFloat
-    ) -> NSRect {
+    private func currentFrame() -> NSRect {
         let screenFrame = screen.frame
-        let width = expanded ? expandedWidth : collapsedWidth
-        let x = screenFrame.midX - width / 2
+        let width = panelState.isExpanded ? expandedWidth : panelState.notchWidth
+        let totalHeight = panelState.notchHeight + panelState.contentHeight
+        return NSRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.maxY - totalHeight,
+            width: width,
+            height: totalHeight
+        )
+    }
 
-        if hasNotch {
-            let totalHeight = notchHeight + contentHeight
-            let y = screenFrame.maxY - totalHeight
-            return NSRect(x: x, y: y, width: width, height: totalHeight)
-        } else {
-            let y = screenFrame.maxY - contentHeight
-            return NSRect(x: x, y: y, width: width, height: contentHeight)
+    func updateScreen(_ newScreen: NSScreen) {
+        screen = newScreen
+        let geo = ScreenGeometry(screen: newScreen)
+
+        panelState.hasNotch = geo.hasNotch
+        panelState.notchHeight = geo.notchHeight
+        panelState.notchWidth = geo.notchWidth
+
+        if !panelState.isExpanded {
+            panelState.contentHeight = CollapsedNotchView.contentHeight(
+                instanceCount: instanceManager.instances.count,
+                maxWidth: geo.notchWidth
+            )
         }
+
+        animateFrameUpdate()
     }
 
     func tearDown() {
         observationTask?.cancel()
         observationTask = nil
         panel.orderOut(nil)
+    }
+
+    private struct ScreenGeometry {
+        let hasNotch: Bool
+        let notchHeight: CGFloat
+        let notchWidth: CGFloat
+
+        init(screen: NSScreen) {
+            hasNotch = screen.safeAreaInsets.top > 0
+            notchHeight = screen.safeAreaInsets.top
+            if hasNotch,
+               let leftArea = screen.auxiliaryTopLeftArea,
+               let rightArea = screen.auxiliaryTopRightArea {
+                notchWidth = rightArea.minX - leftArea.maxX
+            } else if hasNotch {
+                assertionFailure("Screen has notch but no auxiliary top areas")
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
+            } else {
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
+            }
+        }
     }
 }

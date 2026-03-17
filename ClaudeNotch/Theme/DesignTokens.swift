@@ -27,6 +27,7 @@ enum NotchTokens {
         static let contextBarHeight: CGFloat = 3.5
         static let expandedCornerRadius: CGFloat = 16
         static let collapsedCornerRadius: CGFloat = 8
+        static let defaultCollapsedWidth: CGFloat = 220
     }
 
     enum ProjectGroup {
