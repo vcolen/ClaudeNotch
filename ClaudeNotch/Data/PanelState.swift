@@ -9,7 +9,7 @@ final class PanelState {
     var notchHeight: CGFloat
     var notchWidth: CGFloat
 
-    init(hasNotch: Bool, notchHeight: CGFloat = 0, notchWidth: CGFloat = 220) {
+    init(hasNotch: Bool, notchHeight: CGFloat = 0, notchWidth: CGFloat = NotchTokens.Size.defaultCollapsedWidth) {
         self.hasNotch = hasNotch
         self.notchHeight = notchHeight
         self.notchWidth = notchWidth

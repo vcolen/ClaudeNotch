@@ -28,14 +28,11 @@ final class NotchPanelController {
             maxWidth: geo.notchWidth
         )
 
-        let initialFrame = Self.computeFrame(
-            screen: screen,
-            expanded: false,
-            hasNotch: geo.hasNotch,
-            notchHeight: geo.notchHeight,
-            collapsedWidth: geo.notchWidth,
-            expandedWidth: expandedWidth,
-            contentHeight: panelState.contentHeight
+        let initialFrame = NSRect(
+            x: screen.frame.midX - geo.notchWidth / 2,
+            y: screen.frame.maxY - (geo.notchHeight + panelState.contentHeight),
+            width: geo.notchWidth,
+            height: geo.notchHeight + panelState.contentHeight
         )
         self.panel = NotchPanel(contentRect: initialFrame)
 
@@ -88,15 +85,10 @@ final class NotchPanelController {
     }
 
     private func animateFrameUpdate() {
-        let frame = Self.computeFrame(
-            screen: screen,
-            expanded: panelState.isExpanded,
-            hasNotch: panelState.hasNotch,
-            notchHeight: panelState.notchHeight,
-            collapsedWidth: panelState.notchWidth,
-            expandedWidth: expandedWidth,
-            contentHeight: panelState.contentHeight
-        )
+        let frame = currentFrame()
+
+        panel.hasShadow = panelState.isExpanded
+        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
 
         guard panel.frame != frame else { return }
 
@@ -106,32 +98,18 @@ final class NotchPanelController {
             context.allowsImplicitAnimation = true
             self.panel.animator().setFrame(frame, display: true)
         }
-
-        panel.hasShadow = panelState.isExpanded
-        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
     }
 
-    private static func computeFrame(
-        screen: NSScreen,
-        expanded: Bool,
-        hasNotch: Bool,
-        notchHeight: CGFloat,
-        collapsedWidth: CGFloat,
-        expandedWidth: CGFloat,
-        contentHeight: CGFloat
-    ) -> NSRect {
+    private func currentFrame() -> NSRect {
         let screenFrame = screen.frame
-        let width = expanded ? expandedWidth : collapsedWidth
-        let x = screenFrame.midX - width / 2
-
-        if hasNotch {
-            let totalHeight = notchHeight + contentHeight
-            let y = screenFrame.maxY - totalHeight
-            return NSRect(x: x, y: y, width: width, height: totalHeight)
-        } else {
-            let y = screenFrame.maxY - contentHeight
-            return NSRect(x: x, y: y, width: width, height: contentHeight)
-        }
+        let width = panelState.isExpanded ? expandedWidth : panelState.notchWidth
+        let totalHeight = panelState.notchHeight + panelState.contentHeight
+        return NSRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.maxY - totalHeight,
+            width: width,
+            height: totalHeight
+        )
     }
 
     func updateScreen(_ newScreen: NSScreen) {
@@ -149,16 +127,7 @@ final class NotchPanelController {
             )
         }
 
-        let frame = Self.computeFrame(
-            screen: newScreen,
-            expanded: panelState.isExpanded,
-            hasNotch: geo.hasNotch,
-            notchHeight: geo.notchHeight,
-            collapsedWidth: geo.notchWidth,
-            expandedWidth: expandedWidth,
-            contentHeight: panelState.contentHeight
-        )
-        panel.setFrame(frame, display: true)
+        animateFrameUpdate()
     }
 
     func tearDown() {
@@ -179,8 +148,11 @@ final class NotchPanelController {
                let leftArea = screen.auxiliaryTopLeftArea,
                let rightArea = screen.auxiliaryTopRightArea {
                 notchWidth = rightArea.minX - leftArea.maxX
+            } else if hasNotch {
+                assertionFailure("Screen has notch but no auxiliary top areas")
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
             } else {
-                notchWidth = 220
+                notchWidth = NotchTokens.Size.defaultCollapsedWidth
             }
         }
     }
