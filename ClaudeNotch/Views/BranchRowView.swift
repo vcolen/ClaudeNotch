@@ -6,7 +6,6 @@ struct BranchRowView: View {
     var onTap: ((ClaudeInstance) -> Void)?
 
     @State private var isHovered = false
-    @State private var showSelectionFeedback = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -51,10 +50,6 @@ struct BranchRowView: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(isHovered ? Color.white.opacity(0.06) : .clear)
         )
-        .shadow(
-            color: showSelectionFeedback ? NotchTokens.Status.attention.opacity(0.6) : .clear,
-            radius: showSelectionFeedback ? 8 : 0
-        )
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(NotchTokens.Animation.hoverQuick) {
@@ -62,14 +57,6 @@ struct BranchRowView: View {
             }
         }
         .onTapGesture {
-            withAnimation(NotchTokens.Animation.hoverQuick) {
-                showSelectionFeedback = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + NotchTokens.Animation.selectionFlashDuration) {
-                withAnimation(NotchTokens.Animation.selectionFadeOut) {
-                    showSelectionFeedback = false
-                }
-            }
             onTap?(instance)
         }
     }

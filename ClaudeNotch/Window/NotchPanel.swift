@@ -26,6 +26,13 @@ final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown && !isKeyWindow {
+            makeKey()
+        }
+        super.sendEvent(event)
+    }
+
     func setContent(_ view: some View) {
         let hostingView = ClickThroughHostingView(rootView: view)
         hostingView.wantsLayer = true

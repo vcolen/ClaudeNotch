@@ -71,6 +71,9 @@ final class NotchPanelController {
                 instanceManager.clearAttention(for: instance.id)
                 Task {
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
+                    // Brief delay to let iTerm's window come to front before measuring its frame
+                    try? await Task.sleep(for: .milliseconds(150))
+                    WindowHighlighter.flashiTermWindow()
                 }
             }
         )
