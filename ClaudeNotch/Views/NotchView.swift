@@ -50,16 +50,18 @@ struct NotchView: View {
                     .frame(height: panelState.notchHeight)
             }
 
-            switch panelState.mode {
-            case .collapsed:
-                collapsedContent
-                    .transition(.opacity)
-            case .notification:
-                notificationContent
-                    .transition(.opacity)
-            case .expanded:
-                expandedContent
-                    .transition(.opacity)
+            Group {
+                switch panelState.mode {
+                case .collapsed:
+                    collapsedContent
+                        .transition(.opacity)
+                case .notification:
+                    notificationContent
+                        .transition(.opacity)
+                case .expanded:
+                    expandedContent
+                        .transition(.opacity)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .top)
         }

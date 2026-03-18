@@ -467,7 +467,7 @@ struct InstanceManagerTests {
     // MARK: - PID Deduplication
 
     @Test("Same PID socket events are deduplicated")
-    func samePidSocketEventsAreDeduplicated() {
+    @MainActor func samePidSocketEventsAreDeduplicated() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -482,7 +482,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent does NOT override canonical status")
-    func subagentDoesNotOverrideCanonicalStatus() {
+    @MainActor func subagentDoesNotOverrideCanonicalStatus() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -501,7 +501,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent updates tool but NOT tty")
-    func subagentUpdatesToolButNotTty() {
+    @MainActor func subagentUpdatesToolButNotTty() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -518,7 +518,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent 'ended' does not remove canonical")
-    func subagentEndedDoesNotRemoveCanonical() {
+    @MainActor func subagentEndedDoesNotRemoveCanonical() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -538,7 +538,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Canonical 'ended' removes instance even with subagent history")
-    func canonicalEndedRemovesInstance() {
+    @MainActor func canonicalEndedRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -560,7 +560,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Different PIDs remain separate")
-    func differentPidsRemainSeparate() {
+    @MainActor func differentPidsRemainSeparate() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 200, cwd: "/tmp/project1",
@@ -574,7 +574,7 @@ struct InstanceManagerTests {
     }
 
     @Test("PID reuse after session ends creates fresh instance")
-    func pidReuseAfterSessionEndsCreatesFresh() {
+    @MainActor func pidReuseAfterSessionEndsCreatesFresh() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 200, cwd: "/tmp/project",
@@ -596,7 +596,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Multiple subagents deduplicate to one instance")
-    func multipleSubagentsDeduplicate() {
+    @MainActor func multipleSubagentsDeduplicate() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -615,7 +615,7 @@ struct InstanceManagerTests {
     }
 
     @Test("PID 0 does not cause false dedup")
-    func pidZeroDoesNotCauseFalseDedup() {
+    @MainActor func pidZeroDoesNotCauseFalseDedup() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 0, cwd: "/tmp/a",
@@ -684,7 +684,7 @@ struct InstanceManagerTests {
     // MARK: - Socket Event Edge Cases
 
     @Test("updatedAt is refreshed by subagent socket events")
-    func updatedAtRefreshedBySubagentEvents() {
+    @MainActor func updatedAtRefreshedBySubagentEvents() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -704,7 +704,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Direct session_id match takes priority over PID match")
-    func directMatchTakesPriorityOverPidMatch() {
+    @MainActor func directMatchTakesPriorityOverPidMatch() {
         let manager = InstanceManager(skipBootstrap: true)
         // Create parent instance
         manager.handleSocketEvent(.init(
@@ -722,7 +722,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Negative PID is rejected")
-    func negativePidIsRejected() {
+    @MainActor func negativePidIsRejected() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: -1, cwd: "/tmp/test",
@@ -732,7 +732,7 @@ struct InstanceManagerTests {
     }
 
     @Test("'ended' event with PID 0 still removes instance")
-    func endedEventWithPidZeroRemovesInstance() {
+    @MainActor func endedEventWithPidZeroRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         // Create instance normally
         manager.handleSocketEvent(.init(
@@ -750,7 +750,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent TTY does NOT overwrite canonical tty")
-    func subagentTtyDoesNotOverwriteCanonical() {
+    @MainActor func subagentTtyDoesNotOverwriteCanonical() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -770,7 +770,7 @@ struct InstanceManagerTests {
     // MARK: - State File Sync
 
     @Test("State file with parent and subagent (same PID) produces 1 instance")
-    func stateFileDedupSamePid() {
+    @MainActor func stateFileDedupSamePid() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -784,7 +784,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent entry in state file does not override canonical status")
-    func stateFileSubagentDoesNotOverrideStatus() {
+    @MainActor func stateFileSubagentDoesNotOverrideStatus() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -807,7 +807,7 @@ struct InstanceManagerTests {
     }
 
     @Test("State file entries with pid <= 0 are skipped")
-    func stateFileSkipsInvalidPid() {
+    @MainActor func stateFileSkipsInvalidPid() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -826,7 +826,7 @@ struct InstanceManagerTests {
     // MARK: - Stale Threshold Guard
 
     @Test("Recently-updated instance survives state file removal")
-    func recentlyUpdatedInstanceSurvivesRemoval() {
+    @MainActor func recentlyUpdatedInstanceSurvivesRemoval() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -845,7 +845,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Stale instance gets removed by state file sync")
-    func staleInstanceRemovedBySync() {
+    @MainActor func staleInstanceRemovedBySync() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -864,7 +864,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Instance at exact stale boundary is removed")
-    func instanceAtStaleBoundaryIsRemoved() {
+    @MainActor func instanceAtStaleBoundaryIsRemoved() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -882,7 +882,7 @@ struct InstanceManagerTests {
     }
 
     @Test("State file sync sets updatedAt on existing instances")
-    func stateFileSyncSetsUpdatedAt() {
+    @MainActor func stateFileSyncSetsUpdatedAt() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
