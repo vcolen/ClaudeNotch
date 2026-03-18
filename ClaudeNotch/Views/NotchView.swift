@@ -3,13 +3,34 @@ import SwiftUI
 struct NotchView: View {
     let instanceManager: InstanceManager
     let panelState: PanelState
+    let notificationManager: NotificationManager
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
     @State private var dismissTask: Task<Void, Never>?
+    @State private var notificationDebounceTask: Task<Void, Never>?
+
+    private var attentionInstanceIds: Set<String> {
+        Set(instanceManager.needsAttentionInstances.map(\.id))
+    }
 
     private var bottomRadius: CGFloat {
-        panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius
+        switch panelState.mode {
+        case .collapsed: NotchTokens.Size.collapsedCornerRadius
+        case .notification: NotchTokens.Notification.cornerRadius
+        case .expanded: NotchTokens.Size.expandedCornerRadius
+        }
+    }
+
+    private var shadowStyle: (color: Color, radius: CGFloat, y: CGFloat) {
+        switch panelState.mode {
+        case .collapsed:
+            return (.clear, 0, 0)
+        case .notification:
+            return (.black.opacity(0.2), 4, 2)
+        case .expanded:
+            return (.black.opacity(0.4), 8, 4)
+        }
     }
 
     private var clipShape: UnevenRoundedRectangle {
@@ -29,21 +50,25 @@ struct NotchView: View {
                     .frame(height: panelState.notchHeight)
             }
 
-            ZStack(alignment: .top) {
-                if panelState.isExpanded {
+            Group {
+                switch panelState.mode {
+                case .collapsed:
+                    collapsedContent
+                        .transition(.opacity)
+                case .notification:
+                    notificationContent
+                        .transition(.opacity)
+                case .expanded:
                     expandedContent
                         .transition(.opacity)
                 }
-
-                collapsedContent
-                    .opacity(panelState.isExpanded ? 0 : 1)
             }
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
             ZStack {
-                if panelState.isExpanded {
+                if panelState.mode == .expanded {
                     clipShape.fill(.ultraThinMaterial)
                     clipShape.fill(Color.black.opacity(0.3))
                     clipShape
@@ -61,11 +86,7 @@ struct NotchView: View {
             }
         )
         .clipShape(clipShape)
-        .shadow(
-            color: panelState.isExpanded ? .black.opacity(0.4) : .clear,
-            radius: panelState.isExpanded ? 8 : 0,
-            y: panelState.isExpanded ? 4 : 0
-        )
+        .shadow(color: shadowStyle.color, radius: shadowStyle.radius, y: shadowStyle.y)
         .onHover { hovering in
             if hovering {
                 dismissTask?.cancel()
@@ -80,19 +101,49 @@ struct NotchView: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: NotchTokens.Animation.frameDuration), value: panelState.isExpanded)
+        .animation(NotchTokens.Animation.expandSpring, value: panelState.mode)
         .onChange(of: instanceManager.instances.count) { _, newCount in
-            if !panelState.isExpanded {
+            if panelState.mode == .collapsed {
                 panelState.contentHeight = CollapsedNotchView.contentHeight(
                     instanceCount: newCount,
                     maxWidth: panelState.notchWidth
                 )
             }
         }
+        .onChange(of: attentionInstanceIds) { oldIds, newIds in
+            let newAttention = newIds.subtracting(oldIds)
+            if !newAttention.isEmpty && panelState.mode == .collapsed {
+                enterNotificationMode()
+            }
+            if !newAttention.isEmpty && panelState.mode == .notification {
+                enterNotificationMode()
+            }
+            if newIds.isEmpty && panelState.mode == .notification {
+                notificationManager.dismiss()
+            }
+        }
+        .onAppear {
+            if instanceManager.needsAttentionCount > 0 {
+                enterNotificationMode()
+            }
+        }
     }
+
+    // MARK: - Content Views
 
     private var collapsedContent: some View {
         CollapsedNotchView(instanceManager: instanceManager, maxWidth: panelState.notchWidth)
+    }
+
+    private var notificationContent: some View {
+        NotificationBannerView(
+            item: notificationManager.currentItem,
+            queuePosition: notificationManager.currentIndex,
+            queueTotal: notificationManager.queueCount,
+            onTap: { item in notificationManager.onTap?(item) },
+            onDismiss: { notificationManager.dismiss() }
+        )
+        .animation(NotchTokens.Notification.swapAnimation, value: notificationManager.currentItem?.id)
     }
 
     private var expandedContent: some View {
@@ -103,16 +154,27 @@ struct NotchView: View {
         )
     }
 
+    // MARK: - State Transitions
+
     private func expand() {
-        guard !panelState.isExpanded else { return }
-        panelState.isExpanded = true
+        notificationDebounceTask?.cancel()
+        if panelState.mode == .notification {
+            // Stop notification rotation without triggering onDismiss callback
+            notificationManager.cleanup()
+        }
+        guard panelState.mode != .expanded else { return }
+        panelState.mode = .expanded
         instanceManager.startCostPolling()
         updateContentHeight()
     }
 
     private func collapse() {
-        guard panelState.isExpanded else { return }
-        panelState.isExpanded = false
+        guard panelState.mode != .collapsed else { return }
+        notificationDebounceTask?.cancel()
+        if panelState.mode == .notification {
+            notificationManager.cleanup()
+        }
+        panelState.mode = .collapsed
         instanceManager.stopCostPolling()
         panelState.contentHeight = CollapsedNotchView.contentHeight(
             instanceCount: instanceManager.instances.count,
@@ -120,11 +182,62 @@ struct NotchView: View {
         )
     }
 
+    private func enterNotificationMode() {
+        notificationDebounceTask?.cancel()
+        notificationDebounceTask = Task {
+            try? await Task.sleep(for: NotchTokens.Notification.debounceDelay)
+            guard !Task.isCancelled, panelState.mode == .collapsed else {
+                NSLog("NotchView: notification debounce cancelled or mode changed (mode=%@)", "\(panelState.mode)")
+                return
+            }
+
+            let instances = instanceManager.needsAttentionInstances
+            guard !instances.isEmpty else {
+                NSLog("NotchView: no attention instances after debounce, skipping notification")
+                return
+            }
+
+            // Build items without terminal indices first so we can show the banner immediately
+            var items: [NotificationItem] = instances.map { inst in
+                NotificationItem(
+                    instanceId: inst.id,
+                    projectName: inst.projectName,
+                    branchName: inst.branchName,
+                    terminalIndex: nil,
+                    tty: inst.tty,
+                    pid: inst.pid
+                )
+            }
+
+            // Re-check mode hasn't changed during item construction
+            guard !Task.isCancelled, panelState.mode == .collapsed else {
+                NSLog("NotchView: notification cancelled before display (mode=%@)", "\(panelState.mode)")
+                return
+            }
+
+            panelState.mode = .notification
+            panelState.contentHeight = NotificationBannerView.contentHeight
+            notificationManager.showNotifications(items)
+
+            // Look up tab indices in the background and update items
+            for i in items.indices {
+                guard !Task.isCancelled else { return }
+                if let tty = items[i].tty,
+                   let tabIndex = await ITermIntegration.lookupTabIndex(forTTY: tty) {
+                    items[i] = items[i].withTerminalIndex(tabIndex)
+                }
+            }
+            // Update with enriched items if still in notification mode
+            guard !Task.isCancelled, panelState.mode == .notification else { return }
+            notificationManager.updateItems(items)
+        }
+    }
+
     private func updateContentHeight() {
         let allGroups = instanceManager.needsAttentionGroups + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
         var height: CGFloat = 50 // chrome (button + separator)
 
-        // Section headers (~28pt each)
+        // Section headers (28pt each)
         var sectionCount = 0
         if !instanceManager.needsAttentionGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.workingGroups.isEmpty { sectionCount += 1 }
@@ -146,8 +259,9 @@ struct NotchView: View {
 
 #Preview {
     NotchView(
-        instanceManager: InstanceManager(),
-        panelState: PanelState(hasNotch: true, notchHeight: 37)
+        instanceManager: InstanceManager(skipBootstrap: true),
+        panelState: PanelState(hasNotch: true, notchHeight: 37),
+        notificationManager: NotificationManager()
     )
     .frame(width: 400, height: 500, alignment: .top)
     .background(Color.gray.opacity(0.2))

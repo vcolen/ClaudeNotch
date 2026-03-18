@@ -48,10 +48,15 @@
 		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
 		A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000044 /* GitBranchReaderTests.swift */; };
 		A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000045 /* NotchPanelTests.swift */; };
+		A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000046 /* NotificationManagerTests.swift */; };
 		/* ProjectGroup Sources */
 		A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000028 /* ProjectGroup.swift */; };
 		A1B2C3D4000000C6 /* BranchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000029 /* BranchRowView.swift */; };
 		A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002A /* ProjectGroupView.swift */; };
+		/* Notification Sources */
+		A1B2C3D4000000CC /* NotificationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000032 /* NotificationItem.swift */; };
+		A1B2C3D4000000CA /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002D /* NotificationManager.swift */; };
+		A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002E /* NotificationBannerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -116,6 +121,11 @@
 		A1B2C3D400000028 /* ProjectGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroup.swift; sourceTree = "<group>"; };
 		A1B2C3D400000029 /* BranchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchRowView.swift; sourceTree = "<group>"; };
 		A1B2C3D40000002A /* ProjectGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroupView.swift; sourceTree = "<group>"; };
+		/* Notification */
+		A1B2C3D400000032 /* NotificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationItem.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002D /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002E /* NotificationBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerView.swift; sourceTree = "<group>"; };
+		A1B2C3D400000046 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +201,8 @@
 				A1B2C3D400000027 /* GitBranchReader.swift */,
 				A1B2C3D400000028 /* ProjectGroup.swift */,
 				A1B2C3D400000019 /* PanelState.swift */,
+				A1B2C3D400000032 /* NotificationItem.swift */,
+				A1B2C3D40000002D /* NotificationManager.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -207,6 +219,7 @@
 				A1B2C3D40000001E /* StatusDot.swift */,
 				A1B2C3D40000001F /* ContextUsageBar.swift */,
 				A1B2C3D400000020 /* NotchShape.swift */,
+				A1B2C3D40000002E /* NotificationBannerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -249,6 +262,7 @@
 				A1B2C3D400000043 /* ITermSanitizationTests.swift */,
 				A1B2C3D400000044 /* GitBranchReaderTests.swift */,
 				A1B2C3D400000045 /* NotchPanelTests.swift */,
+				A1B2C3D400000046 /* NotificationManagerTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -389,6 +403,10 @@
 				A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */,
 				A1B2C3D4000000C8 /* TerminalFocusMonitor.swift in Sources */,
 				A1B2C3D4000000C9 /* WindowHighlighter.swift in Sources */,
+				A1B2C3D4000000CC /* NotificationItem.swift in Sources */,
+
+				A1B2C3D4000000CA /* NotificationManager.swift in Sources */,
+				A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -402,6 +420,7 @@
 				A1B2C3D4000000D3 /* ITermSanitizationTests.swift in Sources */,
 				A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */,
 				A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */,
+				A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +622,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeNotch.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClaudeNotch";
 			};
 			name = Debug;
@@ -622,6 +642,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeNotch.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClaudeNotch";
 			};
 			name = Release;

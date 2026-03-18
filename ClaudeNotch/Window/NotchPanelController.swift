@@ -7,6 +7,7 @@ final class NotchPanelController {
     private(set) var screen: NSScreen
     let panelState: PanelState
     let instanceManager: InstanceManager
+    let notificationManager: NotificationManager
 
     private let expandedWidth: CGFloat = 340
     private var observationTask: Task<Void, Never>?
@@ -14,6 +15,7 @@ final class NotchPanelController {
     init(screen: NSScreen, instanceManager: InstanceManager) {
         self.screen = screen
         self.instanceManager = instanceManager
+        self.notificationManager = NotificationManager()
 
         let geo = ScreenGeometry(screen: screen)
 
@@ -28,17 +30,41 @@ final class NotchPanelController {
             maxWidth: geo.notchWidth
         )
 
-        let initialFrame = NSRect(
-            x: screen.frame.midX - geo.notchWidth / 2,
-            y: screen.frame.maxY - (geo.notchHeight + panelState.contentHeight),
-            width: geo.notchWidth,
-            height: geo.notchHeight + panelState.contentHeight
+        let initialFrame = Self.computeFrame(
+            screen: screen,
+            mode: .collapsed,
+            hasNotch: geo.hasNotch,
+            notchHeight: geo.notchHeight,
+            collapsedWidth: geo.notchWidth,
+            expandedWidth: expandedWidth,
+            contentHeight: panelState.contentHeight
         )
         self.panel = NotchPanel(contentRect: initialFrame)
+
+        // Wire notification callbacks
+        notificationManager.onDismiss = { [weak self] in
+            guard let self else { return }
+            if self.panelState.mode == .notification {
+                self.panelState.mode = .collapsed
+                self.panelState.contentHeight = CollapsedNotchView.contentHeight(
+                    instanceCount: self.instanceManager.instances.count,
+                    maxWidth: self.panelState.notchWidth
+                )
+            }
+        }
+        notificationManager.onTap = { [weak self] item in
+            guard let self else { return }
+            self.instanceManager.clearAttention(for: item.instanceId)
+            self.notificationManager.dismiss()
+            Task {
+                await ITermIntegration.focusSession(tty: item.tty, pid: item.pid)
+            }
+        }
 
         let notchView = NotchView(
             instanceManager: instanceManager,
             panelState: panelState,
+            notificationManager: notificationManager,
             onNewInstance: {
                 let panel = NSOpenPanel()
                 panel.canChooseDirectories = true
@@ -75,7 +101,7 @@ final class NotchPanelController {
         observationTask = Task { [weak self] in
             guard let self else { return }
             withObservationTracking {
-                _ = self.panelState.isExpanded
+                _ = self.panelState.mode
                 _ = self.panelState.contentHeight
             } onChange: {
                 Task { @MainActor [weak self] in
@@ -88,10 +114,15 @@ final class NotchPanelController {
     }
 
     private func animateFrameUpdate() {
-        let frame = currentFrame()
-
-        panel.hasShadow = panelState.isExpanded
-        panel.updateCornerRadius(panelState.isExpanded ? NotchTokens.Size.expandedCornerRadius : NotchTokens.Size.collapsedCornerRadius)
+        let frame = Self.computeFrame(
+            screen: screen,
+            mode: panelState.mode,
+            hasNotch: panelState.hasNotch,
+            notchHeight: panelState.notchHeight,
+            collapsedWidth: panelState.notchWidth,
+            expandedWidth: expandedWidth,
+            contentHeight: panelState.contentHeight
+        )
 
         guard panel.frame != frame else { return }
 
@@ -101,18 +132,57 @@ final class NotchPanelController {
             context.allowsImplicitAnimation = true
             self.panel.animator().setFrame(frame, display: true)
         }
+
+        switch panelState.mode {
+        case .collapsed:
+            panel.hasShadow = false
+            panel.updateCornerRadius(NotchTokens.Size.collapsedCornerRadius)
+        case .notification:
+            panel.hasShadow = true
+            panel.updateCornerRadius(NotchTokens.Notification.cornerRadius)
+        case .expanded:
+            panel.hasShadow = true
+            panel.updateCornerRadius(NotchTokens.Size.expandedCornerRadius)
+        }
     }
 
-    private func currentFrame() -> NSRect {
+    private static func computeFrame(
+        screen: NSScreen,
+        mode: NotchMode,
+        hasNotch: Bool,
+        notchHeight: CGFloat,
+        collapsedWidth: CGFloat,
+        expandedWidth: CGFloat,
+        contentHeight: CGFloat
+    ) -> NSRect {
         let screenFrame = screen.frame
-        let width = panelState.isExpanded ? expandedWidth : panelState.notchWidth
-        let totalHeight = panelState.notchHeight + panelState.contentHeight
-        return NSRect(
-            x: screenFrame.midX - width / 2,
-            y: screenFrame.maxY - totalHeight,
-            width: width,
-            height: totalHeight
-        )
+
+        let width: CGFloat
+        switch mode {
+        case .collapsed:
+            width = collapsedWidth
+        case .notification:
+            width = min(collapsedWidth + 80, 320)
+        case .expanded:
+            width = expandedWidth
+        }
+
+        let x = screenFrame.midX - width / 2
+
+        if hasNotch {
+            let totalHeight: CGFloat
+            if mode == .notification {
+                totalHeight = notchHeight + NotificationBannerView.contentHeight
+            } else {
+                totalHeight = notchHeight + contentHeight
+            }
+            let y = screenFrame.maxY - totalHeight
+            return NSRect(x: x, y: y, width: width, height: totalHeight)
+        } else {
+            let effectiveHeight = mode == .notification ? NotificationBannerView.contentHeight : contentHeight
+            let y = screenFrame.maxY - effectiveHeight
+            return NSRect(x: x, y: y, width: width, height: effectiveHeight)
+        }
     }
 
     func updateScreen(_ newScreen: NSScreen) {
@@ -123,7 +193,7 @@ final class NotchPanelController {
         panelState.notchHeight = geo.notchHeight
         panelState.notchWidth = geo.notchWidth
 
-        if !panelState.isExpanded {
+        if panelState.mode == .collapsed {
             panelState.contentHeight = CollapsedNotchView.contentHeight(
                 instanceCount: instanceManager.instances.count,
                 maxWidth: geo.notchWidth

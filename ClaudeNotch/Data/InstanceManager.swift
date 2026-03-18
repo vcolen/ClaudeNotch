@@ -107,6 +107,9 @@ final class InstanceManager {
     private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
         let previousStatus = instance.status
         instance.status = newStatus
+        // needsAttention is set when leaving .working and cleared when entering .working.
+        // It intentionally persists across non-working transitions (e.g. waitingInput → idle)
+        // so the notification stays visible until the user explicitly clears it.
         if previousStatus == .working && newStatus != .working {
             instance.needsAttention = true
         } else if newStatus == .working {
@@ -117,9 +120,9 @@ final class InstanceManager {
     init(skipBootstrap: Bool = false) {
         if !skipBootstrap {
             syncFromStateFile()
+            startStalePIDSweep()
+            startStateFilePolling()
         }
-        startStalePIDSweep()
-        startStateFilePolling()
     }
 
     func cleanup() {

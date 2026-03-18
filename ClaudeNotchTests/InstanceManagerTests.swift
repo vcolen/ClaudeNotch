@@ -2,14 +2,13 @@ import Foundation
 import Testing
 @testable import ClaudeNotch
 
-@MainActor
 @Suite("InstanceManager Tests")
 struct InstanceManagerTests {
 
     // MARK: - Status Mapping
 
     @Test("Socket event 'processing' maps to .working")
-    func processingMapsToWorking() {
+    @MainActor func processingMapsToWorking() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -19,7 +18,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Socket event 'running_tool' maps to .working")
-    func runningToolMapsToWorking() {
+    @MainActor func runningToolMapsToWorking() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -30,7 +29,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Socket event 'compacting' maps to .working")
-    func compactingMapsToWorking() {
+    @MainActor func compactingMapsToWorking() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -40,7 +39,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Socket event 'waiting_for_input' maps to .waitingInput")
-    func waitingForInputMapsToWaiting() {
+    @MainActor func waitingForInputMapsToWaiting() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -50,7 +49,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Socket event 'waiting_for_approval' maps to .waitingInput")
-    func waitingForApprovalMapsToWaiting() {
+    @MainActor func waitingForApprovalMapsToWaiting() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -60,7 +59,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Unknown status maps to .idle")
-    func unknownMapsToIdle() {
+    @MainActor func unknownMapsToIdle() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -72,7 +71,7 @@ struct InstanceManagerTests {
     // MARK: - Instance Lifecycle
 
     @Test("New socket event creates instance")
-    func newEventCreatesInstance() {
+    @MainActor func newEventCreatesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/Users/test/project",
@@ -84,7 +83,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Socket event updates existing instance")
-    func eventUpdatesExisting() {
+    @MainActor func eventUpdatesExisting() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -100,7 +99,7 @@ struct InstanceManagerTests {
     }
 
     @Test("'ended' status removes instance")
-    func endedRemovesInstance() {
+    @MainActor func endedRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -118,7 +117,7 @@ struct InstanceManagerTests {
     // MARK: - Computed Properties
 
     @Test("Sorted instances ordered by status priority")
-    func sortedInstancesOrder() {
+    @MainActor func sortedInstancesOrder() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
@@ -136,7 +135,7 @@ struct InstanceManagerTests {
     // MARK: - Project Grouping
 
     @Test("Same project instances are grouped into one ProjectGroup")
-    func sameProjectGrouped() {
+    @MainActor func sameProjectGrouped() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/myproject",
@@ -161,7 +160,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Different projects produce separate groups sorted alphabetically")
-    func differentProjectsSortedAlphabetically() {
+    @MainActor func differentProjectsSortedAlphabetically() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/zebra",
@@ -179,7 +178,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Single-instance project has isSingle true")
-    func singleInstanceGroupIsSingle() {
+    @MainActor func singleInstanceGroupIsSingle() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/solo",
@@ -192,7 +191,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Instances within a group are sorted by branchName")
-    func instancesSortedByBranch() {
+    @MainActor func instancesSortedByBranch() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/proj",
@@ -212,7 +211,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Instances with same remoteURL but different cwds are grouped together")
-    func remoteURLGrouping() {
+    @MainActor func remoteURLGrouping() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project-worktree1",
@@ -243,7 +242,7 @@ struct InstanceManagerTests {
     // MARK: - Attention State
 
     @Test("Working to waiting sets needsAttention")
-    func workingToWaitingSetsAttention() {
+    @MainActor func workingToWaitingSetsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -259,7 +258,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Working to idle sets needsAttention")
-    func workingToIdleSetsAttention() {
+    @MainActor func workingToIdleSetsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -273,7 +272,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Resuming work clears needsAttention")
-    func resumingWorkClearsAttention() {
+    @MainActor func resumingWorkClearsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -293,7 +292,7 @@ struct InstanceManagerTests {
     }
 
     @Test("clearAttention works")
-    func clearAttentionWorks() {
+    @MainActor func clearAttentionWorks() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -310,14 +309,14 @@ struct InstanceManagerTests {
     }
 
     @Test("clearAttention with nonexistent ID is safe")
-    func clearAttentionWithNonexistentIdIsSafe() {
+    @MainActor func clearAttentionWithNonexistentIdIsSafe() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.clearAttention(for: "nonexistent")
         #expect(manager.instances.isEmpty)
     }
 
     @Test("New instance does not have attention")
-    func newInstanceDoesNotHaveAttention() {
+    @MainActor func newInstanceDoesNotHaveAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -327,7 +326,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Non-working to non-working does not set attention")
-    func nonWorkingToNonWorkingNoAttention() {
+    @MainActor func nonWorkingToNonWorkingNoAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -341,7 +340,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Attention instance excluded from waitingInstances")
-    func attentionInstanceExcludedFromWaitingInstances() {
+    @MainActor func attentionInstanceExcludedFromWaitingInstances() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -357,7 +356,7 @@ struct InstanceManagerTests {
     }
 
     @Test("needsAttentionCount is correct after transitions")
-    func needsAttentionCountIsCorrect() {
+    @MainActor func needsAttentionCountIsCorrect() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
@@ -383,7 +382,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Sorted instances show attention first")
-    func sortedInstancesAttentionFirst() {
+    @MainActor func sortedInstancesAttentionFirst() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
@@ -409,7 +408,7 @@ struct InstanceManagerTests {
     // MARK: - Counts
 
     @Test("Active/waiting/idle counts are correct")
-    func countsAreCorrect() {
+    @MainActor func countsAreCorrect() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/a",
@@ -431,7 +430,7 @@ struct InstanceManagerTests {
     // MARK: - Attention Transitions
 
     @Test("Same status repeated does not set attention")
-    func sameStatusRepeatedNoAttention() {
+    @MainActor func sameStatusRepeatedNoAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -445,7 +444,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Ended removes attention instance")
-    func endedRemovesAttentionInstance() {
+    @MainActor func endedRemovesAttentionInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
@@ -468,7 +467,7 @@ struct InstanceManagerTests {
     // MARK: - PID Deduplication
 
     @Test("Same PID socket events are deduplicated")
-    func samePidSocketEventsAreDeduplicated() {
+    @MainActor func samePidSocketEventsAreDeduplicated() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -483,7 +482,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent does NOT override canonical status")
-    func subagentDoesNotOverrideCanonicalStatus() {
+    @MainActor func subagentDoesNotOverrideCanonicalStatus() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -502,7 +501,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent updates tool but NOT tty")
-    func subagentUpdatesToolButNotTty() {
+    @MainActor func subagentUpdatesToolButNotTty() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -519,7 +518,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent 'ended' does not remove canonical")
-    func subagentEndedDoesNotRemoveCanonical() {
+    @MainActor func subagentEndedDoesNotRemoveCanonical() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -539,7 +538,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Canonical 'ended' removes instance even with subagent history")
-    func canonicalEndedRemovesInstance() {
+    @MainActor func canonicalEndedRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -561,7 +560,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Different PIDs remain separate")
-    func differentPidsRemainSeparate() {
+    @MainActor func differentPidsRemainSeparate() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 200, cwd: "/tmp/project1",
@@ -575,7 +574,7 @@ struct InstanceManagerTests {
     }
 
     @Test("PID reuse after session ends creates fresh instance")
-    func pidReuseAfterSessionEndsCreatesFresh() {
+    @MainActor func pidReuseAfterSessionEndsCreatesFresh() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 200, cwd: "/tmp/project",
@@ -597,7 +596,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Multiple subagents deduplicate to one instance")
-    func multipleSubagentsDeduplicate() {
+    @MainActor func multipleSubagentsDeduplicate() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -616,7 +615,7 @@ struct InstanceManagerTests {
     }
 
     @Test("PID 0 does not cause false dedup")
-    func pidZeroDoesNotCauseFalseDedup() {
+    @MainActor func pidZeroDoesNotCauseFalseDedup() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 0, cwd: "/tmp/a",
@@ -631,7 +630,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Counts exclude attention instances")
-    func countsExcludeAttentionInstances() {
+    @MainActor func countsExcludeAttentionInstances() {
         let manager = InstanceManager(skipBootstrap: true)
         // Create a working instance
         manager.handleSocketEvent(.init(
@@ -655,7 +654,7 @@ struct InstanceManagerTests {
     }
 
     @Test("needsAttentionGroups groups correctly")
-    func needsAttentionGroupsCorrect() {
+    @MainActor func needsAttentionGroupsCorrect() {
         let manager = InstanceManager(skipBootstrap: true)
         // Two instances in same project
         manager.handleSocketEvent(.init(
@@ -685,7 +684,7 @@ struct InstanceManagerTests {
     // MARK: - Socket Event Edge Cases
 
     @Test("updatedAt is refreshed by subagent socket events")
-    func updatedAtRefreshedBySubagentEvents() {
+    @MainActor func updatedAtRefreshedBySubagentEvents() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -705,7 +704,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Direct session_id match takes priority over PID match")
-    func directMatchTakesPriorityOverPidMatch() {
+    @MainActor func directMatchTakesPriorityOverPidMatch() {
         let manager = InstanceManager(skipBootstrap: true)
         // Create parent instance
         manager.handleSocketEvent(.init(
@@ -723,7 +722,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Negative PID is rejected")
-    func negativePidIsRejected() {
+    @MainActor func negativePidIsRejected() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: -1, cwd: "/tmp/test",
@@ -733,7 +732,7 @@ struct InstanceManagerTests {
     }
 
     @Test("'ended' event with PID 0 still removes instance")
-    func endedEventWithPidZeroRemovesInstance() {
+    @MainActor func endedEventWithPidZeroRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)
         // Create instance normally
         manager.handleSocketEvent(.init(
@@ -751,7 +750,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent TTY does NOT overwrite canonical tty")
-    func subagentTtyDoesNotOverwriteCanonical() {
+    @MainActor func subagentTtyDoesNotOverwriteCanonical() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
             sessionId: "parent", pid: 200, cwd: "/tmp/project",
@@ -771,7 +770,7 @@ struct InstanceManagerTests {
     // MARK: - State File Sync
 
     @Test("State file with parent and subagent (same PID) produces 1 instance")
-    func stateFileDedupSamePid() {
+    @MainActor func stateFileDedupSamePid() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -785,7 +784,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Subagent entry in state file does not override canonical status")
-    func stateFileSubagentDoesNotOverrideStatus() {
+    @MainActor func stateFileSubagentDoesNotOverrideStatus() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -808,7 +807,7 @@ struct InstanceManagerTests {
     }
 
     @Test("State file entries with pid <= 0 are skipped")
-    func stateFileSkipsInvalidPid() {
+    @MainActor func stateFileSkipsInvalidPid() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -827,7 +826,7 @@ struct InstanceManagerTests {
     // MARK: - Stale Threshold Guard
 
     @Test("Recently-updated instance survives state file removal")
-    func recentlyUpdatedInstanceSurvivesRemoval() {
+    @MainActor func recentlyUpdatedInstanceSurvivesRemoval() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -846,7 +845,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Stale instance gets removed by state file sync")
-    func staleInstanceRemovedBySync() {
+    @MainActor func staleInstanceRemovedBySync() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -865,7 +864,7 @@ struct InstanceManagerTests {
     }
 
     @Test("Instance at exact stale boundary is removed")
-    func instanceAtStaleBoundaryIsRemoved() {
+    @MainActor func instanceAtStaleBoundaryIsRemoved() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -883,7 +882,7 @@ struct InstanceManagerTests {
     }
 
     @Test("State file sync sets updatedAt on existing instances")
-    func stateFileSyncSetsUpdatedAt() {
+    @MainActor func stateFileSyncSetsUpdatedAt() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 

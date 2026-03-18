@@ -7,6 +7,7 @@ struct StatusDot: View {
 
     @State private var isPulsing = false
     @State private var attentionPulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shouldWorkingPulse: Bool {
         status == .working && isVisible && !isAttention
@@ -29,8 +30,8 @@ struct StatusDot: View {
     }
 
     private func updatePulseState(status: InstanceStatus, isVisible: Bool, isAttention: Bool) {
-        attentionPulse = isAttention
-        isPulsing = status == .working && isVisible && !isAttention
+        attentionPulse = isAttention && !reduceMotion
+        isPulsing = status == .working && isVisible && !isAttention && !reduceMotion
     }
 
     var body: some View {
@@ -41,23 +42,24 @@ struct StatusDot: View {
             .shadow(color: secondaryShadowColor, radius: 2)
             .scaleEffect(isPulsing && shouldWorkingPulse ? 1.12 : 1.0)
             .opacity(dotOpacity)
+            .transaction { $0.animation = nil }
             .animation(
-                shouldWorkingPulse
+                shouldWorkingPulse && !reduceMotion
                     ? .easeInOut(duration: 1.1).repeatForever(autoreverses: true)
                     : .default,
                 value: isPulsing
             )
             .animation(
-                isAttention
+                isAttention && !reduceMotion
                     ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
                     : .default,
                 value: attentionPulse
             )
             .onAppear {
-                if shouldWorkingPulse {
+                if shouldWorkingPulse && !reduceMotion {
                     isPulsing = true
                 }
-                if isAttention {
+                if isAttention && !reduceMotion {
                     attentionPulse = true
                 }
             }
