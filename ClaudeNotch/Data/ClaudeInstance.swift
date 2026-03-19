@@ -31,6 +31,11 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var branchName: String?
     var remoteURL: String?
     var needsAttention: Bool = false
+    /// Records when the last direct socket event was received for this instance.
+    /// When recent (within `InstanceManager.socketRecencyWindow`), the socket status
+    /// is considered authoritative and state-file sync will not overwrite it.
+    /// Marked @ObservationIgnored because this is internal bookkeeping, not UI state.
+    @ObservationIgnored var lastSocketEventAt: Date?
 
     init(
         id: String,
