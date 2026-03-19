@@ -5,10 +5,11 @@ import Testing
 @Suite("NotificationManager Tests")
 struct NotificationManagerTests {
 
-    private func makeItem(id: String = "test-1", project: String = "proj") -> NotificationItem {
+    private func makeItem(id: String = "test-1", project: String = "proj", attentionType: AttentionType = .needsInput) -> NotificationItem {
         NotificationItem(
             instanceId: id, projectName: project, branchName: "main",
-            terminalIndex: 1, tty: "/dev/ttys001", pid: 100
+            terminalIndex: 1, tty: "/dev/ttys001", pid: 100,
+            attentionType: attentionType
         )
     }
 
@@ -160,8 +161,8 @@ struct NotificationManagerTests {
         manager.showNotifications(items)
 
         let updatedItems = [
-            NotificationItem(instanceId: "a", projectName: "new-proj", branchName: "main", terminalIndex: 5, tty: "/dev/ttys001", pid: 100),
-            NotificationItem(instanceId: "b", projectName: "new-proj2", branchName: "main", terminalIndex: 3, tty: "/dev/ttys002", pid: 200)
+            NotificationItem(instanceId: "a", projectName: "new-proj", branchName: "main", terminalIndex: 5, tty: "/dev/ttys001", pid: 100, attentionType: .needsInput),
+            NotificationItem(instanceId: "b", projectName: "new-proj2", branchName: "main", terminalIndex: 3, tty: "/dev/ttys002", pid: 200, attentionType: .needsInput)
         ]
         manager.updateItems(updatedItems)
 
@@ -202,6 +203,23 @@ struct NotificationManagerTests {
         #expect(manager.queueCount == 1)
         manager.dismiss()
         #expect(manager.queueCount == 0)
+    }
+
+    // MARK: - AttentionType in queue
+
+    @Test("Items with different attention types coexist in queue")
+    @MainActor func differentAttentionTypesCoexist() {
+        let manager = NotificationManager()
+        let items = [
+            makeItem(id: "a", attentionType: .needsInput),
+            makeItem(id: "b", attentionType: .taskFinished),
+            makeItem(id: "c", attentionType: .needsInput),
+        ]
+        manager.showNotifications(items)
+        #expect(manager.queueCount == 3)
+        #expect(manager.queue[0].attentionType == .needsInput)
+        #expect(manager.queue[1].attentionType == .taskFinished)
+        #expect(manager.queue[2].attentionType == .needsInput)
     }
 
     // MARK: - Callback integration
@@ -324,7 +342,7 @@ struct NotificationBannerSubtitleTests {
     func subtitleWithIndexAndBranch() {
         let item = NotificationItem(
             instanceId: "1", projectName: "my-project", branchName: "main",
-            terminalIndex: 3, tty: "/dev/ttys001", pid: 100
+            terminalIndex: 3, tty: "/dev/ttys001", pid: 100, attentionType: .needsInput
         )
         let text = Self.subtitleText(for: item)
         #expect(text == "Terminal 3 \u{00B7} my-project / main")
@@ -334,7 +352,7 @@ struct NotificationBannerSubtitleTests {
     func subtitleWithoutIndex() {
         let item = NotificationItem(
             instanceId: "1", projectName: "my-project", branchName: "feature/auth",
-            terminalIndex: nil, tty: nil, pid: 100
+            terminalIndex: nil, tty: nil, pid: 100, attentionType: .needsInput
         )
         let text = Self.subtitleText(for: item)
         #expect(text == "my-project / feature/auth")
@@ -344,7 +362,7 @@ struct NotificationBannerSubtitleTests {
     func subtitleWithoutBranch() {
         let item = NotificationItem(
             instanceId: "1", projectName: "my-project", branchName: nil,
-            terminalIndex: 2, tty: "/dev/ttys001", pid: 100
+            terminalIndex: 2, tty: "/dev/ttys001", pid: 100, attentionType: .needsInput
         )
         let text = Self.subtitleText(for: item)
         #expect(text == "Terminal 2 \u{00B7} my-project")
@@ -354,7 +372,7 @@ struct NotificationBannerSubtitleTests {
     func subtitleWithNeither() {
         let item = NotificationItem(
             instanceId: "1", projectName: "my-project", branchName: nil,
-            terminalIndex: nil, tty: nil, pid: 100
+            terminalIndex: nil, tty: nil, pid: 100, attentionType: .needsInput
         )
         let text = Self.subtitleText(for: item)
         #expect(text == "my-project")

@@ -33,7 +33,8 @@ struct ExpandedNotchView: View {
         ScrollView {
             LazyVStack(spacing: 4) {
                 let sections: [(title: String, color: Color, groups: [ProjectGroup])] = [
-                    ("Needs Attention", NotchTokens.Status.attention, instanceManager.needsAttentionGroups),
+                    ("Needs Input", NotchTokens.Status.needsInput, instanceManager.needsInputGroups),
+                    ("Finished", NotchTokens.Status.taskFinished, instanceManager.taskFinishedGroups),
                     ("Running", NotchTokens.Status.working, instanceManager.workingGroups),
                     ("Awaiting Input", NotchTokens.Status.waiting, instanceManager.waitingGroups),
                     ("Idle", NotchTokens.Status.idle, instanceManager.idleGroups),

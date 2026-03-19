@@ -50,7 +50,10 @@ final class InstanceManager {
     }
 
     var sortedInstances: [ClaudeInstance] {
-        needsAttentionInstances + workingInstances + waitingInstances + idleInstances
+        let attentionSorted = needsAttentionInstances.sorted {
+            ($0.attentionType?.sortPriority ?? 99) < ($1.attentionType?.sortPriority ?? 99)
+        }
+        return attentionSorted + workingInstances + waitingInstances + idleInstances
     }
 
     // MARK: - Grouped by Project
@@ -69,6 +72,14 @@ final class InstanceManager {
 
     var needsAttentionGroups: [ProjectGroup] {
         groupByProject(needsAttentionInstances)
+    }
+
+    var needsInputGroups: [ProjectGroup] {
+        groupByProject(needsAttentionInstances.filter { $0.attentionType == .needsInput })
+    }
+
+    var taskFinishedGroups: [ProjectGroup] {
+        groupByProject(needsAttentionInstances.filter { $0.attentionType == .taskFinished })
     }
 
     private func groupByProject(_ instances: [ClaudeInstance]) -> [ProjectGroup] {
@@ -101,19 +112,19 @@ final class InstanceManager {
     // MARK: - Attention Management
 
     func clearAttention(for sessionId: String) {
-        instances[sessionId]?.needsAttention = false
+        instances[sessionId]?.attentionType = nil
     }
 
     private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
         let previousStatus = instance.status
         instance.status = newStatus
-        // needsAttention is set when leaving .working and cleared when entering .working.
+        // attentionType is set when leaving .working and cleared when entering .working.
         // It intentionally persists across non-working transitions (e.g. waitingInput → idle)
         // so the notification stays visible until the user explicitly clears it.
         if previousStatus == .working && newStatus != .working {
-            instance.needsAttention = true
+            instance.attentionType = (newStatus == .waitingInput) ? .needsInput : .taskFinished
         } else if newStatus == .working {
-            instance.needsAttention = false
+            instance.attentionType = nil
         }
     }
 
@@ -310,6 +321,7 @@ final class InstanceManager {
         case "waiting_for_input", "waiting_for_approval":
             return .waitingInput
         default:
+            NSLog("InstanceManager: unrecognized status '%@', mapping to .idle", status)
             return .idle
         }
     }

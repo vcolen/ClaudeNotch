@@ -198,16 +198,21 @@ struct NotchView: View {
             }
 
             // Build items without terminal indices first so we can show the banner immediately
-            var items: [NotificationItem] = instances.map { inst in
-                NotificationItem(
+            var items: [NotificationItem] = instances.compactMap { inst in
+                guard let attentionType = inst.attentionType else { return nil }
+                return NotificationItem(
                     instanceId: inst.id,
                     projectName: inst.projectName,
                     branchName: inst.branchName,
                     terminalIndex: nil,
                     tty: inst.tty,
-                    pid: inst.pid
+                    pid: inst.pid,
+                    attentionType: attentionType
                 )
             }
+            .sorted { $0.attentionType.sortPriority < $1.attentionType.sortPriority }
+
+            guard !items.isEmpty else { return }
 
             // Re-check mode hasn't changed during item construction
             guard !Task.isCancelled, panelState.mode == .collapsed else {
@@ -224,7 +229,7 @@ struct NotchView: View {
                 guard !Task.isCancelled else { return }
                 if let tty = items[i].tty,
                    let tabIndex = await ITermIntegration.lookupTabIndex(forTTY: tty) {
-                    items[i] = items[i].withTerminalIndex(tabIndex)
+                    items[i].terminalIndex = tabIndex
                 }
             }
             // Update with enriched items if still in notification mode
@@ -234,12 +239,14 @@ struct NotchView: View {
     }
 
     private func updateContentHeight() {
-        let allGroups = instanceManager.needsAttentionGroups + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
+        let allGroups = instanceManager.needsInputGroups + instanceManager.taskFinishedGroups
+            + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
         var height: CGFloat = 50 // chrome (button + separator)
 
         // Section headers (28pt each)
         var sectionCount = 0
-        if !instanceManager.needsAttentionGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.needsInputGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.taskFinishedGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.workingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.waitingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.idleGroups.isEmpty { sectionCount += 1 }

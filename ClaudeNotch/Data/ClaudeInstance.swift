@@ -1,5 +1,33 @@
 import Foundation
 import Observation
+import SwiftUI
+
+enum AttentionType: String, CaseIterable, Sendable {
+    case needsInput     // working -> waitingInput
+    case taskFinished   // working -> idle
+
+    var color: Color {
+        switch self {
+        case .needsInput:  return NotchTokens.Status.needsInput
+        case .taskFinished: return NotchTokens.Status.taskFinished
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .needsInput:  return "Needs Input"
+        case .taskFinished: return "Finished"
+        }
+    }
+
+    /// Lower value = higher priority in sort order and notification queue
+    var sortPriority: Int {
+        switch self {
+        case .needsInput:  return 0
+        case .taskFinished: return 1
+        }
+    }
+}
 
 enum InstanceStatus: String, Sendable {
     case working
@@ -30,7 +58,8 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var lastTool: String?
     var branchName: String?
     var remoteURL: String?
-    var needsAttention: Bool = false
+    var attentionType: AttentionType? = nil
+    var needsAttention: Bool { attentionType != nil }
 
     init(
         id: String,

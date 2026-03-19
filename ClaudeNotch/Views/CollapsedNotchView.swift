@@ -54,7 +54,7 @@ struct CollapsedNotchView: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: Self.dotSpacing) {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, info in
-                        StatusDot(status: info.status, isVisible: true, isAttention: info.isAttention)
+                        StatusDot(status: info.status, isVisible: true, attentionColor: info.attentionColor)
                     }
                 }
             }
@@ -63,7 +63,7 @@ struct CollapsedNotchView: View {
 
     private var dotInfos: [DotInfo] {
         instanceManager.sortedInstances.map {
-            DotInfo(status: $0.status, isAttention: $0.needsAttention)
+            DotInfo(status: $0.status, attentionColor: $0.attentionType?.color)
         }
     }
 
@@ -97,7 +97,7 @@ struct CollapsedNotchView: View {
 
 struct DotInfo {
     let status: InstanceStatus
-    let isAttention: Bool
+    let attentionColor: Color?
 }
 
 #Preview {

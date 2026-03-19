@@ -4,19 +4,9 @@ struct NotificationItem: Identifiable {
     let instanceId: String
     let projectName: String
     let branchName: String?
-    let terminalIndex: Int?
+    var terminalIndex: Int?
     let tty: String?
     let pid: Int
+    let attentionType: AttentionType
     var id: String { instanceId }
-
-    func withTerminalIndex(_ index: Int) -> NotificationItem {
-        NotificationItem(
-            instanceId: instanceId,
-            projectName: projectName,
-            branchName: branchName,
-            terminalIndex: index,
-            tty: tty,
-            pid: pid
-        )
-    }
 }

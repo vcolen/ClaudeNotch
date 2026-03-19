@@ -114,7 +114,7 @@ struct InstanceCardView: View {
                 .fill(instance.displayColor)
                 .frame(width: 5, height: 5)
 
-            Text(instance.needsAttention ? "Attention" : instance.status.displayName)
+            Text(instance.attentionType?.displayName ?? instance.status.displayName)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(instance.displayColor)
         }
