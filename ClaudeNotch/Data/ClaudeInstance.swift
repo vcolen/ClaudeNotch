@@ -31,6 +31,7 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var branchName: String?
     var remoteURL: String?
     var needsAttention: Bool = false
+    @ObservationIgnored var statusFromSocket: Bool = false
 
     init(
         id: String,

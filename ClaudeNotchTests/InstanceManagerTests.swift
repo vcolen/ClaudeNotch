@@ -881,6 +881,96 @@ struct InstanceManagerTests {
         #expect(manager.instances.isEmpty)
     }
 
+    // MARK: - Socket Priority over State File
+
+    @Test("Socket-set working status not overwritten by state file idle")
+    @MainActor func socketStatusNotOverwrittenByStateFile() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket event (sets statusFromSocket = true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // Sync stale state file with "idle" status
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        // Status must remain .working — socket is authoritative
+        #expect(manager.instances["s1"]?.status == .working)
+    }
+
+    @Test("State file can update status for instances with no socket events")
+    @MainActor func stateFileUpdatesStatusWithoutSocketEvents() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via state file (no socket events)
+        let stateFile1 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile1)
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // Sync again with different status — should update normally
+        let stateFile2 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile2)
+        #expect(manager.instances["s1"]?.status == .waitingInput)
+    }
+
+    @Test("New socket event instance has statusFromSocket true")
+    @MainActor func newSocketInstanceHasStatusFromSocket() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.statusFromSocket == true)
+    }
+
+    @Test("State-file-created instance has statusFromSocket false")
+    @MainActor func stateFileInstanceHasNoStatusFromSocket() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.statusFromSocket == false)
+    }
+
+    @Test("Subagent socket event does NOT set statusFromSocket on canonical")
+    @MainActor func subagentDoesNotSetStatusFromSocketOnCanonical() {
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create parent via socket
+        manager.handleSocketEvent(.init(
+            sessionId: "parent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["parent"]?.statusFromSocket == true)
+
+        // Reset to simulate testing the subagent path
+        manager.instances["parent"]!.statusFromSocket = false
+
+        // Subagent event (different session_id, same PID) — resolved via PID dedup
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Subagent event is NOT a direct match, so statusFromSocket should remain false
+        #expect(manager.instances["parent"]?.statusFromSocket == false)
+    }
+
     @Test("State file sync sets updatedAt on existing instances")
     @MainActor func stateFileSyncSetsUpdatedAt() {
         InstanceManager.testProcessAliveOverride = { _ in true }

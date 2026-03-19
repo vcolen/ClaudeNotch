@@ -194,7 +194,7 @@ final class InstanceManager {
             if let existing = instances[resolvedId] {
                 // Skip status transitions for deduped (subagent) entries —
                 // subagent status changes should not trigger attention alerts on the canonical instance
-                if !isDedupedEntry && existing.status != status {
+                if !isDedupedEntry && !existing.statusFromSocket && existing.status != status {
                     applyStatusTransition(on: existing, newStatus: status)
                 }
                 existing.updatedAt = Date()
@@ -288,6 +288,7 @@ final class InstanceManager {
             existing.updatedAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
             if isDirectMatch {
+                existing.statusFromSocket = true
                 if let tty = event.tty { existing.tty = tty }
             }
             if let tool = event.tool { existing.lastTool = tool }
@@ -296,6 +297,7 @@ final class InstanceManager {
                 id: event.sessionId, pid: event.pid, cwd: event.cwd,
                 status: mappedStatus, tty: event.tty
             )
+            instance.statusFromSocket = true
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
             if let tool = event.tool { instance.lastTool = tool }
