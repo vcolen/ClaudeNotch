@@ -9,14 +9,16 @@ struct NotchView: View {
 
     @State private var dismissTask: Task<Void, Never>?
     @State private var notificationDebounceTask: Task<Void, Never>?
+    @State private var attentionDismissTask: Task<Void, Never>?
 
     private var attentionInstanceIds: Set<String> {
         Set(instanceManager.needsAttentionInstances.map(\.id))
     }
 
-    // Notification mode: outer clip/shadow are disabled (set to 0/clear) because the window
-    // includes a transparent spacer above the banner. Rounding at this level would round the
-    // spacer, not the banner. The NotificationBannerView handles its own pill clip and shadow.
+    // The window frame extends beyond the visible banner: it includes the notch area (on notch
+    // screens), topMargin gap, and shadow padding. Outer clip/shadow are disabled in notification
+    // mode so rounding applies to the pill, not the invisible spacer. NotificationBannerView
+    // handles its own clip and shadow.
     private var bottomRadius: CGFloat {
         switch panelState.mode {
         case .collapsed: NotchTokens.Size.collapsedCornerRadius
@@ -27,9 +29,7 @@ struct NotchView: View {
 
     private var shadowStyle: (color: Color, radius: CGFloat, y: CGFloat) {
         switch panelState.mode {
-        case .collapsed:
-            return (.clear, 0, 0)
-        case .notification:
+        case .collapsed, .notification:
             return (.clear, 0, 0)
         case .expanded:
             return (.black.opacity(0.4), 8, 4)
@@ -116,14 +116,20 @@ struct NotchView: View {
         }
         .onChange(of: attentionInstanceIds) { oldIds, newIds in
             let newAttention = newIds.subtracting(oldIds)
-            if !newAttention.isEmpty && panelState.mode == .collapsed {
+            if !newAttention.isEmpty && (panelState.mode == .collapsed || panelState.mode == .notification) {
+                attentionDismissTask?.cancel()
                 enterNotificationMode()
             }
-            if !newAttention.isEmpty && panelState.mode == .notification {
-                enterNotificationMode()
+            if newIds.isEmpty && panelState.mode == .notification {
+                attentionDismissTask?.cancel()
+                attentionDismissTask = Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    guard !Task.isCancelled else { return }
+                    if instanceManager.needsAttentionInstances.isEmpty {
+                        notificationManager.dismiss()
+                    }
+                }
             }
-            // Don't dismiss immediately when attention clears — let the notification
-            // ride out its timeout so it doesn't flash on rapid state changes.
         }
         .onAppear {
             if instanceManager.needsAttentionCount > 0 {
@@ -161,6 +167,7 @@ struct NotchView: View {
 
     private func expand() {
         notificationDebounceTask?.cancel()
+        attentionDismissTask?.cancel()
         if panelState.mode == .notification {
             // Stop notification rotation without triggering onDismiss callback
             notificationManager.cleanup()
@@ -174,6 +181,7 @@ struct NotchView: View {
     private func collapse() {
         guard panelState.mode != .collapsed else { return }
         notificationDebounceTask?.cancel()
+        attentionDismissTask?.cancel()
         if panelState.mode == .notification {
             notificationManager.cleanup()
         }
@@ -200,8 +208,7 @@ struct NotchView: View {
                 return
             }
 
-            // Build items without terminal indices first so we can show the banner immediately
-            var items: [NotificationItem] = instances.map { inst in
+            let items: [NotificationItem] = instances.map { inst in
                 NotificationItem(
                     instanceId: inst.id,
                     projectName: inst.projectName,
@@ -221,18 +228,6 @@ struct NotchView: View {
             panelState.mode = .notification
             panelState.contentHeight = NotificationBannerView.contentHeight
             notificationManager.showNotifications(items)
-
-            // Look up tab indices in the background and update items
-            for i in items.indices {
-                guard !Task.isCancelled else { return }
-                if let tty = items[i].tty,
-                   let tabIndex = await ITermIntegration.lookupTabIndex(forTTY: tty) {
-                    items[i] = items[i].withTerminalIndex(tabIndex)
-                }
-            }
-            // Update with enriched items if still in notification mode
-            guard !Task.isCancelled, panelState.mode == .notification else { return }
-            notificationManager.updateItems(items)
         }
     }
 

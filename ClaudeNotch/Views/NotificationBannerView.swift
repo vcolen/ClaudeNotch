@@ -86,7 +86,6 @@ struct NotificationBannerView: View {
             onTap?(item)
         }
     }
-
 }
 
 #Preview {

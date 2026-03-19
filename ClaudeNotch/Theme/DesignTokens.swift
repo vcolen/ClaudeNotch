@@ -49,7 +49,7 @@ enum NotchTokens {
         static let bannerHeight: CGFloat = 48
         static let cornerRadius: CGFloat = bannerHeight / 2  // pill shape, auto-adapts if height changes
         static let shadowPadding: CGFloat = 8  // room for the banner's drop shadow below the pill
-        static let topMargin: CGFloat = 8  // gap between notch and banner pill
+        static let topMargin: CGFloat = 8  // vertical gap above the banner pill (below notch on notch screens, from screen top otherwise)
         static let dismissTimeout: Duration = .seconds(5)
         static let rotationInterval: Duration = .seconds(4)
         static let swapAnimation = SwiftUI.Animation.spring(response: 0.35, dampingFraction: 0.82)
