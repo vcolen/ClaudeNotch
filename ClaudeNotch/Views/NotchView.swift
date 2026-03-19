@@ -196,8 +196,12 @@ struct NotchView: View {
     private func enterNotificationMode() {
         notificationDebounceTask?.cancel()
         notificationDebounceTask = Task {
-            try? await Task.sleep(for: NotchTokens.Notification.debounceDelay)
-            guard !Task.isCancelled, panelState.mode == .collapsed else {
+            do {
+                try await Task.sleep(for: NotchTokens.Notification.debounceDelay)
+            } catch {
+                return
+            }
+            guard panelState.mode == .collapsed else {
                 NSLog("NotchView: notification debounce cancelled or mode changed (mode=%@)", "\(panelState.mode)")
                 return
             }
@@ -208,16 +212,24 @@ struct NotchView: View {
                 return
             }
 
-            let items: [NotificationItem] = instances.map { inst in
-                NotificationItem(
+            let items: [NotificationItem] = instances.compactMap { inst in
+                guard let attentionType = inst.attentionType else {
+                    assertionFailure("Instance \(inst.id) in needsAttentionInstances but attentionType is nil")
+                    return nil
+                }
+                return NotificationItem(
                     instanceId: inst.id,
                     projectName: inst.projectName,
                     branchName: inst.branchName,
                     terminalIndex: nil,
                     tty: inst.tty,
-                    pid: inst.pid
+                    pid: inst.pid,
+                    attentionType: attentionType
                 )
             }
+            .sorted { $0.attentionType < $1.attentionType }
+
+            guard !items.isEmpty else { return }
 
             // Re-check mode hasn't changed during item construction
             guard !Task.isCancelled, panelState.mode == .collapsed else {
@@ -232,12 +244,14 @@ struct NotchView: View {
     }
 
     private func updateContentHeight() {
-        let allGroups = instanceManager.needsAttentionGroups + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
+        let allGroups = instanceManager.needsInputGroups + instanceManager.taskFinishedGroups
+            + instanceManager.workingGroups + instanceManager.waitingGroups + instanceManager.idleGroups
         var height: CGFloat = 50 // chrome (button + separator)
 
         // Section headers (28pt each)
         var sectionCount = 0
-        if !instanceManager.needsAttentionGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.needsInputGroups.isEmpty { sectionCount += 1 }
+        if !instanceManager.taskFinishedGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.workingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.waitingGroups.isEmpty { sectionCount += 1 }
         if !instanceManager.idleGroups.isEmpty { sectionCount += 1 }

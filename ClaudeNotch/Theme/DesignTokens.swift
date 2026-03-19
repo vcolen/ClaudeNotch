@@ -7,7 +7,8 @@ enum NotchTokens {
         static let working = Color(red: 0.3, green: 0.85, blue: 0.4)
         static let waiting = Color(red: 1.0, green: 0.8, blue: 0.2)
         static let idle = Color.white.opacity(0.4)
-        static let attention = Color(red: 1.0, green: 0.6, blue: 0.15)
+        static let needsInput = Color(red: 1.0, green: 0.6, blue: 0.15)
+        static let taskFinished = Color(red: 0.4, green: 0.7, blue: 1.0)
     }
 
     enum Branch {
@@ -89,10 +90,36 @@ extension InstanceStatus {
     }
 }
 
+// MARK: - AttentionType Presentation
+
+extension AttentionType {
+    var color: Color {
+        switch self {
+        case .needsInput:  return NotchTokens.Status.needsInput
+        case .taskFinished: return NotchTokens.Status.taskFinished
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .needsInput:  return "Needs Input"
+        case .taskFinished: return "Finished"
+        }
+    }
+
+    var bannerTitle: String {
+        switch self {
+        case .needsInput:  return "Claude needs input"
+        case .taskFinished: return "Claude finished task"
+        }
+    }
+}
+
 // MARK: - ClaudeInstance Display Color
 
 extension ClaudeInstance {
     var displayColor: Color {
-        needsAttention ? NotchTokens.Status.attention : status.color
+        if let attentionType { return attentionType.color }
+        return status.color
     }
 }

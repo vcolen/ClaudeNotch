@@ -28,10 +28,10 @@ struct NotificationBannerView: View {
 
     private func bannerContent(item: NotificationItem) -> some View {
         HStack(spacing: 8) {
-            StatusDot(status: .waitingInput, isVisible: true, isAttention: true)
+            StatusDot(status: .waitingInput, isVisible: true, attentionType: item.attentionType)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Needs attention \u{00B7} \(item.projectName)")
+                Text("\(item.attentionType.displayName) \u{00B7} \(item.projectName)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -73,7 +73,7 @@ struct NotificationBannerView: View {
             ZStack {
                 Color.black
                 LinearGradient(
-                    colors: [NotchTokens.Status.attention.opacity(0.08), .clear],
+                    colors: [item.attentionType.color.opacity(0.08), .clear],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -97,7 +97,8 @@ struct NotificationBannerView: View {
                 branchName: "main",
                 terminalIndex: 3,
                 tty: "/dev/ttys001",
-                pid: 1234
+                pid: 1234,
+                attentionType: .needsInput
             ),
             queuePosition: 1,
             queueTotal: 3
@@ -110,7 +111,8 @@ struct NotificationBannerView: View {
                 branchName: "feature/auth",
                 terminalIndex: nil,
                 tty: nil,
-                pid: 5678
+                pid: 5678,
+                attentionType: .taskFinished
             ),
             queuePosition: 0,
             queueTotal: 1

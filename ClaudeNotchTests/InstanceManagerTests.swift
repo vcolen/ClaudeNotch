@@ -241,7 +241,7 @@ struct InstanceManagerTests {
 
     // MARK: - Attention State
 
-    @Test("Working to waiting sets needsAttention")
+    @Test("Working to waiting sets needsAttention and attentionType .needsInput")
     @MainActor func workingToWaitingSetsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
@@ -249,15 +249,17 @@ struct InstanceManagerTests {
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == false)
+        #expect(manager.instances["s1"]?.attentionType == nil)
 
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
             status: "waiting_for_input", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == true)
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
     }
 
-    @Test("Working to idle sets needsAttention")
+    @Test("Working to idle sets needsAttention and attentionType .taskFinished")
     @MainActor func workingToIdleSetsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
@@ -269,9 +271,10 @@ struct InstanceManagerTests {
             status: "unknown", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == true)
+        #expect(manager.instances["s1"]?.attentionType == .taskFinished)
     }
 
-    @Test("Resuming work clears needsAttention")
+    @Test("Resuming work clears needsAttention and attentionType")
     @MainActor func resumingWorkClearsAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
@@ -283,15 +286,17 @@ struct InstanceManagerTests {
             status: "waiting_for_input", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == true)
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
 
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == false)
+        #expect(manager.instances["s1"]?.attentionType == nil)
     }
 
-    @Test("clearAttention works")
+    @Test("clearAttention resets attentionType to nil")
     @MainActor func clearAttentionWorks() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
@@ -302,9 +307,10 @@ struct InstanceManagerTests {
             sessionId: "s1", pid: 100, cwd: "/tmp/test",
             status: "waiting_for_input", tty: nil, tool: nil
         ))
-        #expect(manager.instances["s1"]?.needsAttention == true)
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
 
         manager.clearAttention(for: "s1")
+        #expect(manager.instances["s1"]?.attentionType == nil)
         #expect(manager.instances["s1"]?.needsAttention == false)
     }
 
@@ -315,7 +321,7 @@ struct InstanceManagerTests {
         #expect(manager.instances.isEmpty)
     }
 
-    @Test("New instance does not have attention")
+    @Test("New instance has nil attentionType")
     @MainActor func newInstanceDoesNotHaveAttention() {
         let manager = InstanceManager(skipBootstrap: true)
         manager.handleSocketEvent(.init(
@@ -323,6 +329,7 @@ struct InstanceManagerTests {
             status: "waiting_for_input", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.needsAttention == false)
+        #expect(manager.instances["s1"]?.attentionType == nil)
     }
 
     @Test("Non-working to non-working does not set attention")
@@ -651,34 +658,6 @@ struct InstanceManagerTests {
         #expect(manager.needsAttentionCount == 1)
         #expect(manager.waitingCount == 1) // Only s2, not s1
         #expect(manager.activeCount == 0)
-    }
-
-    @Test("needsAttentionGroups groups correctly")
-    @MainActor func needsAttentionGroupsCorrect() {
-        let manager = InstanceManager(skipBootstrap: true)
-        // Two instances in same project
-        manager.handleSocketEvent(.init(
-            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
-            status: "processing", tty: nil, tool: nil
-        ))
-        manager.handleSocketEvent(.init(
-            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
-            status: "processing", tty: nil, tool: nil
-        ))
-        // Transition both to waiting (sets attention)
-        manager.handleSocketEvent(.init(
-            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
-            status: "waiting_for_input", tty: nil, tool: nil
-        ))
-        manager.handleSocketEvent(.init(
-            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
-            status: "waiting_for_input", tty: nil, tool: nil
-        ))
-
-        let groups = manager.needsAttentionGroups
-        #expect(groups.count == 1)
-        #expect(groups[0].count == 2)
-        #expect(groups[0].displayName == "proj")
     }
 
     // MARK: - Socket Event Edge Cases
@@ -1038,6 +1017,139 @@ struct InstanceManagerTests {
         #expect(manager.instances["s1"]!.updatedAt > oldDate)
     }
 
+    // MARK: - AttentionType-Specific Tests
+
+    @Test("working -> waiting -> idle keeps original .needsInput attention type")
+    @MainActor func workingToWaitingToIdleKeepsOriginalAttentionType() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
+
+        // waitingInput -> idle should NOT change attentionType (non-working -> non-working)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
+    }
+
+    @Test("needsInputGroups filtered correctly")
+    @MainActor func needsInputGroupsFilteredCorrectly() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "unknown", tty: nil, tool: nil
+        ))
+
+        let inputGroups = manager.needsInputGroups
+        #expect(inputGroups.flatMap(\.instances).count == 1)
+        #expect(inputGroups.flatMap(\.instances).first?.id == "s1")
+    }
+
+    @Test("taskFinishedGroups filtered correctly")
+    @MainActor func taskFinishedGroupsFilteredCorrectly() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
+            status: "unknown", tty: nil, tool: nil
+        ))
+
+        let finishedGroups = manager.taskFinishedGroups
+        #expect(finishedGroups.flatMap(\.instances).count == 1)
+        #expect(finishedGroups.flatMap(\.instances).first?.id == "s2")
+    }
+
+    @Test("sortedInstances orders needsInput before taskFinished")
+    @MainActor func sortedInstancesOrdersNeedsInputBeforeTaskFinished() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/a",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s2", pid: 101, cwd: "/tmp/b",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+
+        let sorted = manager.sortedInstances
+        #expect(sorted[0].attentionType == .needsInput)
+        #expect(sorted[1].attentionType == .taskFinished)
+    }
+
+    @Test("State file sync triggers correct attention type")
+    @MainActor func stateFileSyncTriggersCorrectAttentionType() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+
+        // Age the socket event so state file sync is not deferred
+        manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(-60)
+
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
+
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == nil)
+
+        manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(-60)
+
+        let stateFile2 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile2)
+        #expect(manager.instances["s1"]?.attentionType == .taskFinished)
+    }
+
     // MARK: - Socket Recency Window
 
     @Test("Socket-to-socket transition works when socket is authoritative")
@@ -1046,21 +1158,18 @@ struct InstanceManagerTests {
         defer { InstanceManager.testProcessAliveOverride = nil }
 
         let manager = InstanceManager(skipBootstrap: true)
-        // Create instance via socket (working)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.status == .working)
 
-        // State file with idle — should be blocked by socket recency
         let stateFile = InstanceManager.StateFile(instances: [
             "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
         ])
         manager.sync(from: stateFile)
         #expect(manager.instances["s1"]?.status == .working)
 
-        // New socket event with waiting_for_input — socket-to-socket should work
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "waiting_for_input", tty: nil, tool: nil
@@ -1075,21 +1184,17 @@ struct InstanceManagerTests {
         defer { InstanceManager.testProcessAliveOverride = nil }
 
         let manager = InstanceManager(skipBootstrap: true)
-        // Create instance via socket
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
 
-        // Age past stale threshold so removal can happen
         manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
 
-        // Sync with empty state file — removes the stale instance
         manager.sync(from: InstanceManager.StateFile(instances: [:]))
         #expect(manager.instances.isEmpty)
 
-        // Recreate via state file with different status
         let stateFile = InstanceManager.StateFile(instances: [
             "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
         ])
@@ -1104,21 +1209,18 @@ struct InstanceManagerTests {
         defer { InstanceManager.testProcessAliveOverride = nil }
 
         let manager = InstanceManager(skipBootstrap: true)
-        // Create via state file
         let stateFile1 = InstanceManager.StateFile(instances: [
             "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
         ])
         manager.sync(from: stateFile1)
         #expect(manager.instances["s1"]?.lastSocketEventAt == nil)
 
-        // First socket event sets lastSocketEventAt
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
 
-        // State file with different status — blocked by socket recency
         let stateFile2 = InstanceManager.StateFile(instances: [
             "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
         ])
@@ -1132,16 +1234,13 @@ struct InstanceManagerTests {
         defer { InstanceManager.testProcessAliveOverride = nil }
 
         let manager = InstanceManager(skipBootstrap: true)
-        // Create via socket
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "processing", tty: nil, tool: nil
         ))
-        // Age updatedAt slightly
         let oldDate = Date().addingTimeInterval(-1)
         manager.instances["s1"]!.updatedAt = oldDate
 
-        // State file with different status — blocked by socket recency, but updatedAt should refresh
         let stateFile = InstanceManager.StateFile(instances: [
             "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
         ])
@@ -1156,23 +1255,104 @@ struct InstanceManagerTests {
         defer { InstanceManager.testProcessAliveOverride = nil }
 
         let manager = InstanceManager(skipBootstrap: true)
-        // Create via socket (working)
         manager.handleSocketEvent(.init(
             sessionId: "s1", pid: 100, cwd: "/tmp/project",
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.status == .working)
 
-        // Age lastSocketEventAt past the recency window
         manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(
             -(InstanceManager.socketRecencyWindow + 1)
         )
 
-        // State file with idle status — should now be applied
         let stateFile = InstanceManager.StateFile(instances: [
             "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
         ])
         manager.sync(from: stateFile)
         #expect(manager.instances["s1"]?.status == .idle)
+    }
+
+    // MARK: - Socket Grace Window Suppression
+
+    @Test("State file sync defers to recent socket event")
+    @MainActor func stateFileSyncDefersToRecentSocketEvent() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.attentionType == nil)
+        #expect(manager.instances["s1"]?.status == .working)
+    }
+
+    // MARK: - Attention Type Coverage
+
+    @Test("Working to waiting_for_approval sets attentionType .needsInput")
+    @MainActor func workingToWaitingForApprovalSetsNeedsInput() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_approval", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
+    }
+
+    @Test("clearAttention resets .taskFinished attentionType to nil")
+    @MainActor func clearAttentionOnTaskFinished() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .taskFinished)
+
+        manager.clearAttention(for: "s1")
+        #expect(manager.instances["s1"]?.attentionType == nil)
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    // MARK: - TerminalFocusMonitor Eligibility
+
+    @Test("Attention set recently is NOT eligible for clearing")
+    @MainActor func recentAttentionNotEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test", status: .working)
+        instance.transition(to: .waitingInput)
+        #expect(instance.attentionSetAt != nil)
+
+        let now = Date()
+        #expect(!TerminalFocusMonitor.isEligibleForClearing(instance, at: now))
+    }
+
+    @Test("Attention set long ago IS eligible for clearing")
+    @MainActor func oldAttentionIsEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test", status: .working)
+        instance.transition(to: .waitingInput)
+
+        let future = Date().addingTimeInterval(TerminalFocusMonitor.attentionGracePeriod + 1)
+        #expect(TerminalFocusMonitor.isEligibleForClearing(instance, at: future))
+    }
+
+    @Test("Nil attentionSetAt IS eligible for clearing")
+    @MainActor func nilAttentionSetAtIsEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test")
+        #expect(instance.attentionSetAt == nil)
+        #expect(TerminalFocusMonitor.isEligibleForClearing(instance, at: Date()))
     }
 }

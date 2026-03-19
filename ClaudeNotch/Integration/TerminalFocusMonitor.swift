@@ -82,6 +82,16 @@ final class TerminalFocusMonitor {
         pollTask = nil
     }
 
+    /// Grace period after attention is set before the monitor can clear it.
+    /// Gives the notification banner time to appear and be seen.
+    nonisolated static let attentionGracePeriod: TimeInterval = 6
+
+    /// Returns true if the instance's attention has been set long enough to be eligible for clearing.
+    nonisolated static func isEligibleForClearing(_ instance: ClaudeInstance, at now: Date = Date()) -> Bool {
+        guard let setAt = instance.attentionSetAt else { return true }
+        return now.timeIntervalSince(setAt) >= attentionGracePeriod
+    }
+
     private func checkActiveSession() async {
         guard isITermFocused, ITermIntegration.isITermRunning() else {
             if isITermFocused {
@@ -91,10 +101,17 @@ final class TerminalFocusMonitor {
             return
         }
 
+        let now = Date()
         let attentionInstances = instanceManager.needsAttentionInstances
         guard !attentionInstances.isEmpty else { return }
 
-        let instanceData = attentionInstances.map { (id: $0.id, tty: $0.tty, pid: $0.pid) }
+        // Don't clear attention that was recently set — let the notification show first
+        let eligibleInstances = attentionInstances.filter { inst in
+            Self.isEligibleForClearing(inst, at: now)
+        }
+        guard !eligibleInstances.isEmpty else { return }
+
+        let instanceData = eligibleInstances.map { (id: $0.id, tty: $0.tty, pid: $0.pid) }
 
         // Query iTerm for the TTY of its currently active session off the main thread
         let matchedIds = await Task.detached {

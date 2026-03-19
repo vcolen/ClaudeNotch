@@ -54,7 +54,11 @@ final class InstanceManager {
     }
 
     var sortedInstances: [ClaudeInstance] {
-        needsAttentionInstances + workingInstances + waitingInstances + idleInstances
+        let attentionSorted = needsAttentionInstances.sorted {
+            guard let a = $0.attentionType, let b = $1.attentionType else { return false }
+            return a < b
+        }
+        return attentionSorted + workingInstances + waitingInstances + idleInstances
     }
 
     // MARK: - Grouped by Project
@@ -71,8 +75,12 @@ final class InstanceManager {
         groupByProject(idleInstances)
     }
 
-    var needsAttentionGroups: [ProjectGroup] {
-        groupByProject(needsAttentionInstances)
+    var needsInputGroups: [ProjectGroup] {
+        groupByProject(needsAttentionInstances.filter { $0.attentionType == .needsInput })
+    }
+
+    var taskFinishedGroups: [ProjectGroup] {
+        groupByProject(needsAttentionInstances.filter { $0.attentionType == .taskFinished })
     }
 
     private func groupByProject(_ instances: [ClaudeInstance]) -> [ProjectGroup] {
@@ -105,20 +113,7 @@ final class InstanceManager {
     // MARK: - Attention Management
 
     func clearAttention(for sessionId: String) {
-        instances[sessionId]?.needsAttention = false
-    }
-
-    private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
-        let previousStatus = instance.status
-        instance.status = newStatus
-        // needsAttention is set when leaving .working and cleared when entering .working.
-        // It intentionally persists across non-working transitions (e.g. waitingInput → idle)
-        // so the notification stays visible until the user explicitly clears it.
-        if previousStatus == .working && newStatus != .working {
-            instance.needsAttention = true
-        } else if newStatus == .working {
-            instance.needsAttention = false
-        }
+        instances[sessionId]?.clearAttention()
     }
 
     init(skipBootstrap: Bool = false) {
@@ -205,11 +200,13 @@ final class InstanceManager {
                 let socketIsRecent = existing.lastSocketEventAt.map {
                     Date().timeIntervalSince($0) < Self.socketRecencyWindow
                 } ?? false
-                if !isDedupedEntry && !socketIsRecent && existing.status != status {
-                    applyStatusTransition(on: existing, newStatus: status)
-                } else if !isDedupedEntry && socketIsRecent && existing.status != status {
-                    NSLog("InstanceManager: skipping state file status update for '%@' (%@ -> %@) — socket is authoritative",
-                          resolvedId, existing.status.rawValue, status.rawValue)
+                if !isDedupedEntry && existing.status != status {
+                    if socketIsRecent {
+                        NSLog("InstanceManager: skipping state file status update for '%@' (%@ -> %@) — socket is authoritative",
+                              resolvedId, existing.status.rawValue, status.rawValue)
+                    } else {
+                        existing.transition(to: status)
+                    }
                 }
                 existing.updatedAt = Date()
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
@@ -299,7 +296,7 @@ final class InstanceManager {
             // Only apply status transitions from the session's own events (isDirectMatch),
             // not from subagent events resolved via PID (which would cause false attention alerts)
             if isDirectMatch && existing.status != mappedStatus {
-                applyStatusTransition(on: existing, newStatus: mappedStatus)
+                existing.transition(to: mappedStatus)
             }
             existing.updatedAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
@@ -329,7 +326,10 @@ final class InstanceManager {
             return .working
         case "waiting_for_input", "waiting_for_approval":
             return .waitingInput
+        case "idle", "unknown":
+            return .idle
         default:
+            NSLog("InstanceManager: unrecognized status '%@', mapping to .idle", status)
             return .idle
         }
     }
