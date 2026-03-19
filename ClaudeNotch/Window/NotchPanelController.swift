@@ -133,15 +133,13 @@ final class NotchPanelController {
             self.panel.animator().setFrame(frame, display: true)
         }
 
+        panel.hasShadow = (panelState.mode == .expanded)
         switch panelState.mode {
         case .collapsed:
-            panel.hasShadow = false
             panel.updateCornerRadius(NotchTokens.Size.collapsedCornerRadius)
         case .notification:
-            panel.hasShadow = true
-            panel.updateCornerRadius(NotchTokens.Notification.cornerRadius)
+            panel.updateCornerRadius(0)
         case .expanded:
-            panel.hasShadow = true
             panel.updateCornerRadius(NotchTokens.Size.expandedCornerRadius)
         }
     }
@@ -162,24 +160,22 @@ final class NotchPanelController {
         case .collapsed:
             width = collapsedWidth
         case .notification:
-            width = min(collapsedWidth + 80, 320)
+            width = hasNotch ? max(collapsedWidth, 300) : min(collapsedWidth + 80, 320)
         case .expanded:
             width = expandedWidth
         }
 
         let x = screenFrame.midX - width / 2
+        let notificationHeight = NotchTokens.Notification.topMargin + NotificationBannerView.contentHeight + NotchTokens.Notification.shadowPadding
 
         if hasNotch {
-            let totalHeight: CGFloat
-            if mode == .notification {
-                totalHeight = notchHeight + NotificationBannerView.contentHeight
-            } else {
-                totalHeight = notchHeight + contentHeight
-            }
+            let totalHeight = mode == .notification
+                ? notchHeight + notificationHeight
+                : notchHeight + contentHeight
             let y = screenFrame.maxY - totalHeight
             return NSRect(x: x, y: y, width: width, height: totalHeight)
         } else {
-            let effectiveHeight = mode == .notification ? NotificationBannerView.contentHeight : contentHeight
+            let effectiveHeight = mode == .notification ? notificationHeight : contentHeight
             let y = screenFrame.maxY - effectiveHeight
             return NSRect(x: x, y: y, width: width, height: effectiveHeight)
         }

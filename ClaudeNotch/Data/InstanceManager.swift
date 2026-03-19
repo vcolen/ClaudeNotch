@@ -20,9 +20,9 @@ final class InstanceManager {
     /// Must exceed the state file polling interval (2s) to avoid flicker during sync gaps.
     private static let staleGracePeriod: TimeInterval = 5
 
-    /// Grace period during which state-file sync defers to recent socket events.
-    /// Prevents the state file (which may lag) from overriding fresh socket-driven transitions.
-    private static let socketGracePeriod: TimeInterval = 5
+    /// How long a socket event remains authoritative over state-file status.
+    /// Should be greater than the state file polling interval (2s) to prevent flicker.
+    static let socketRecencyWindow: TimeInterval = 5
 
     #if DEBUG
     /// Override for testing; when set, replaces the real process-liveness check.
@@ -147,7 +147,8 @@ final class InstanceManager {
         instance.pid = pid
         if instance.cwd != cwd {
             instance.cwd = cwd
-            instance.projectName = (cwd as NSString).lastPathComponent
+            let gitRoot = branchReader.gitRootDirectory(from: cwd)
+            instance.projectName = ((gitRoot ?? cwd) as NSString).lastPathComponent
             instance.branchName = branchReader.readBranch(forDirectory: cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
         }
@@ -191,15 +192,18 @@ final class InstanceManager {
             let status = mapStatus(inst.status)
 
             if let existing = instances[resolvedId] {
-                // Skip status transitions for deduped (subagent) entries —
-                // subagent status changes should not trigger attention alerts on the canonical instance.
-                // Also defer to recent socket events — the state file may lag behind.
-                let hasRecentSocketEvent = existing.lastSocketEventAt.map {
-                    Date().timeIntervalSince($0) < Self.socketGracePeriod
+                // Skip status transitions when:
+                // 1. This is a deduped (subagent) entry — subagent status changes
+                //    should not trigger attention alerts on the canonical instance.
+                // 2. The instance recently received status from a socket event —
+                //    real-time socket data is authoritative over the polled state file.
+                let socketIsRecent = existing.lastSocketEventAt.map {
+                    Date().timeIntervalSince($0) < Self.socketRecencyWindow
                 } ?? false
                 if !isDedupedEntry && existing.status != status {
-                    if hasRecentSocketEvent {
-                        NSLog("InstanceManager: suppressing state-file transition for '%@' — socket event %.1fs ago", resolvedId, Date().timeIntervalSince(existing.lastSocketEventAt!))
+                    if socketIsRecent {
+                        NSLog("InstanceManager: skipping state file status update for '%@' (%@ -> %@) — socket is authoritative",
+                              resolvedId, existing.status.rawValue, status.rawValue)
                     } else {
                         existing.transition(to: status)
                     }
@@ -208,6 +212,8 @@ final class InstanceManager {
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
             } else {
                 let instance = ClaudeInstance(id: resolvedId, pid: inst.pid, cwd: inst.cwd, status: status)
+                let gitRoot = branchReader.gitRootDirectory(from: inst.cwd)
+                instance.projectName = ((gitRoot ?? inst.cwd) as NSString).lastPathComponent
                 instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
                 instance.remoteURL = branchReader.readRemoteURL(forDirectory: inst.cwd)
                 instances[resolvedId] = instance
@@ -293,9 +299,9 @@ final class InstanceManager {
                 existing.transition(to: mappedStatus)
             }
             existing.updatedAt = Date()
-            existing.lastSocketEventAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
             if isDirectMatch {
+                existing.lastSocketEventAt = Date()
                 if let tty = event.tty { existing.tty = tty }
             }
             if let tool = event.tool { existing.lastTool = tool }
@@ -304,6 +310,8 @@ final class InstanceManager {
                 id: event.sessionId, pid: event.pid, cwd: event.cwd,
                 status: mappedStatus, tty: event.tty
             )
+            let gitRoot = branchReader.gitRootDirectory(from: event.cwd)
+            instance.projectName = ((gitRoot ?? event.cwd) as NSString).lastPathComponent
             instance.lastSocketEventAt = Date()
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
@@ -341,6 +349,8 @@ final class InstanceManager {
         }
     }
 
+    // Stale PID sweep removes instances when the process dies,
+    // regardless of socket recency — process death is definitive.
     private func sweepStaleInstances() {
         let staleIds = instances.filter { !isProcessAlive(pid: $0.value.pid) }.map(\.key)
         for id in staleIds {
