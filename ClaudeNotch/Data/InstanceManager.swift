@@ -20,6 +20,10 @@ final class InstanceManager {
     /// Must exceed the state file polling interval (2s) to avoid flicker during sync gaps.
     private static let staleGracePeriod: TimeInterval = 5
 
+    /// How long a socket event remains authoritative over state-file status.
+    /// Should be greater than the state file polling interval (2s) to prevent flicker.
+    static let socketRecencyWindow: TimeInterval = 5
+
     #if DEBUG
     /// Override for testing; when set, replaces the real process-liveness check.
     nonisolated(unsafe) static var testProcessAliveOverride: ((Int) -> Bool)?
@@ -192,10 +196,19 @@ final class InstanceManager {
             let status = mapStatus(inst.status)
 
             if let existing = instances[resolvedId] {
-                // Skip status transitions for deduped (subagent) entries —
-                // subagent status changes should not trigger attention alerts on the canonical instance
-                if !isDedupedEntry && !existing.statusFromSocket && existing.status != status {
+                // Skip status transitions when:
+                // 1. This is a deduped (subagent) entry — subagent status changes
+                //    should not trigger attention alerts on the canonical instance.
+                // 2. The instance recently received status from a socket event —
+                //    real-time socket data is authoritative over the polled state file.
+                let socketIsRecent = existing.lastSocketEventAt.map {
+                    Date().timeIntervalSince($0) < Self.socketRecencyWindow
+                } ?? false
+                if !isDedupedEntry && !socketIsRecent && existing.status != status {
                     applyStatusTransition(on: existing, newStatus: status)
+                } else if !isDedupedEntry && socketIsRecent && existing.status != status {
+                    NSLog("InstanceManager: skipping state file status update for '%@' (%@ -> %@) — socket is authoritative",
+                          resolvedId, existing.status.rawValue, status.rawValue)
                 }
                 existing.updatedAt = Date()
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
@@ -288,7 +301,7 @@ final class InstanceManager {
             existing.updatedAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
             if isDirectMatch {
-                existing.statusFromSocket = true
+                existing.lastSocketEventAt = Date()
                 if let tty = event.tty { existing.tty = tty }
             }
             if let tool = event.tool { existing.lastTool = tool }
@@ -297,7 +310,7 @@ final class InstanceManager {
                 id: event.sessionId, pid: event.pid, cwd: event.cwd,
                 status: mappedStatus, tty: event.tty
             )
-            instance.statusFromSocket = true
+            instance.lastSocketEventAt = Date()
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
             if let tool = event.tool { instance.lastTool = tool }
@@ -331,6 +344,8 @@ final class InstanceManager {
         }
     }
 
+    // Stale PID sweep removes instances when the process dies,
+    // regardless of socket recency — process death is definitive.
     private func sweepStaleInstances() {
         let staleIds = instances.filter { !isProcessAlive(pid: $0.value.pid) }.map(\.key)
         for id in staleIds {
