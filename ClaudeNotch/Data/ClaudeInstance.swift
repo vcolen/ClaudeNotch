@@ -60,6 +60,9 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var remoteURL: String?
     var attentionType: AttentionType? = nil
     var needsAttention: Bool { attentionType != nil }
+    /// Timestamp of the last socket event for this instance.
+    /// State file polling defers to socket events within a grace window.
+    var lastSocketEventAt: Date?
 
     init(
         id: String,

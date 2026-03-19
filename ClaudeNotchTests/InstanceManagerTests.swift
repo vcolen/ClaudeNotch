@@ -1028,6 +1028,9 @@ struct InstanceManagerTests {
         ))
         #expect(manager.instances["s1"]?.status == .working)
 
+        // Age the socket event so state file sync is not deferred
+        manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(-60)
+
         // State file reports it as waiting_for_input
         let stateFile = InstanceManager.StateFile(instances: [
             "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
@@ -1041,6 +1044,9 @@ struct InstanceManagerTests {
             status: "processing", tty: nil, tool: nil
         ))
         #expect(manager.instances["s1"]?.attentionType == nil)
+
+        // Age again for second state file sync
+        manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(-60)
 
         // State file reports idle
         let stateFile2 = InstanceManager.StateFile(instances: [

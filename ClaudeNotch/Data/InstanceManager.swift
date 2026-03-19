@@ -204,8 +204,13 @@ final class InstanceManager {
 
             if let existing = instances[resolvedId] {
                 // Skip status transitions for deduped (subagent) entries —
-                // subagent status changes should not trigger attention alerts on the canonical instance
-                if !isDedupedEntry && existing.status != status {
+                // subagent status changes should not trigger attention alerts on the canonical instance.
+                // Also defer to recent socket events — the state file may lag behind.
+                let socketGrace: TimeInterval = 30
+                let hasRecentSocketEvent = existing.lastSocketEventAt.map {
+                    Date().timeIntervalSince($0) < socketGrace
+                } ?? false
+                if !isDedupedEntry && existing.status != status && !hasRecentSocketEvent {
                     applyStatusTransition(on: existing, newStatus: status)
                 }
                 existing.updatedAt = Date()
@@ -297,6 +302,7 @@ final class InstanceManager {
                 applyStatusTransition(on: existing, newStatus: mappedStatus)
             }
             existing.updatedAt = Date()
+            existing.lastSocketEventAt = Date()
             updateInstanceMetadata(existing, pid: event.pid, cwd: event.cwd)
             if isDirectMatch {
                 if let tty = event.tty { existing.tty = tty }
@@ -307,6 +313,7 @@ final class InstanceManager {
                 id: event.sessionId, pid: event.pid, cwd: event.cwd,
                 status: mappedStatus, tty: event.tty
             )
+            instance.lastSocketEventAt = Date()
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
             if let tool = event.tool { instance.lastTool = tool }
@@ -320,6 +327,8 @@ final class InstanceManager {
             return .working
         case "waiting_for_input", "waiting_for_approval":
             return .waitingInput
+        case "idle", "unknown":
+            return .idle
         default:
             NSLog("InstanceManager: unrecognized status '%@', mapping to .idle", status)
             return .idle
