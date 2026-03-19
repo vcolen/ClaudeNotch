@@ -148,7 +148,8 @@ final class InstanceManager {
         instance.pid = pid
         if instance.cwd != cwd {
             instance.cwd = cwd
-            instance.projectName = (cwd as NSString).lastPathComponent
+            let gitRoot = branchReader.gitRootDirectory(from: cwd)
+            instance.projectName = ((gitRoot ?? cwd) as NSString).lastPathComponent
             instance.branchName = branchReader.readBranch(forDirectory: cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
         }

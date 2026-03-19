@@ -31,16 +31,19 @@ struct NotificationBannerView: View {
             StatusDot(status: .waitingInput, isVisible: true, isAttention: true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Claude needs attention")
+                Text("Needs attention \u{00B7} \(item.projectName)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-
-                Text(subtitleText(for: item))
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .lineLimit(1)
                     .truncationMode(.tail)
+
+                if let branch = item.branchName {
+                    Text(branch)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
 
             Spacer(minLength: 4)
@@ -76,24 +79,14 @@ struct NotificationBannerView: View {
                 )
             }
         )
+        .clipShape(RoundedRectangle(cornerRadius: NotchTokens.Notification.cornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
         .contentShape(Rectangle())
         .onTapGesture {
             onTap?(item)
         }
     }
 
-    private func subtitleText(for item: NotificationItem) -> String {
-        var parts: [String] = []
-        if let index = item.terminalIndex {
-            parts.append("Terminal \(index)")
-        }
-        var projectPart = item.projectName
-        if let branch = item.branchName {
-            projectPart += " / \(branch)"
-        }
-        parts.append(projectPart)
-        return parts.joined(separator: " \u{00B7} ")
-    }
 }
 
 #Preview {

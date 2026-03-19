@@ -14,10 +14,13 @@ struct NotchView: View {
         Set(instanceManager.needsAttentionInstances.map(\.id))
     }
 
+    // Notification mode: outer clip/shadow are disabled (set to 0/clear) because the window
+    // includes a transparent spacer above the banner. Rounding at this level would round the
+    // spacer, not the banner. The NotificationBannerView handles its own pill clip and shadow.
     private var bottomRadius: CGFloat {
         switch panelState.mode {
         case .collapsed: NotchTokens.Size.collapsedCornerRadius
-        case .notification: NotchTokens.Notification.cornerRadius
+        case .notification: 0
         case .expanded: NotchTokens.Size.expandedCornerRadius
         }
     }
@@ -27,7 +30,7 @@ struct NotchView: View {
         case .collapsed:
             return (.clear, 0, 0)
         case .notification:
-            return (.black.opacity(0.2), 4, 2)
+            return (.clear, 0, 0)
         case .expanded:
             return (.black.opacity(0.4), 8, 4)
         }
@@ -57,6 +60,7 @@ struct NotchView: View {
                         .transition(.opacity)
                 case .notification:
                     notificationContent
+                        .padding(.top, NotchTokens.Notification.topMargin)
                         .transition(.opacity)
                 case .expanded:
                     expandedContent
@@ -118,9 +122,8 @@ struct NotchView: View {
             if !newAttention.isEmpty && panelState.mode == .notification {
                 enterNotificationMode()
             }
-            if newIds.isEmpty && panelState.mode == .notification {
-                notificationManager.dismiss()
-            }
+            // Don't dismiss immediately when attention clears — let the notification
+            // ride out its timeout so it doesn't flash on rapid state changes.
         }
         .onAppear {
             if instanceManager.needsAttentionCount > 0 {

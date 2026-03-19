@@ -138,8 +138,8 @@ final class NotchPanelController {
             panel.hasShadow = false
             panel.updateCornerRadius(NotchTokens.Size.collapsedCornerRadius)
         case .notification:
-            panel.hasShadow = true
-            panel.updateCornerRadius(NotchTokens.Notification.cornerRadius)
+            panel.hasShadow = false
+            panel.updateCornerRadius(0)
         case .expanded:
             panel.hasShadow = true
             panel.updateCornerRadius(NotchTokens.Size.expandedCornerRadius)
@@ -162,7 +162,7 @@ final class NotchPanelController {
         case .collapsed:
             width = collapsedWidth
         case .notification:
-            width = min(collapsedWidth + 80, 320)
+            width = hasNotch ? max(collapsedWidth, 300) : min(collapsedWidth + 80, 320)
         case .expanded:
             width = expandedWidth
         }
@@ -172,14 +172,16 @@ final class NotchPanelController {
         if hasNotch {
             let totalHeight: CGFloat
             if mode == .notification {
-                totalHeight = notchHeight + NotificationBannerView.contentHeight
+                totalHeight = notchHeight + NotchTokens.Notification.topMargin + NotificationBannerView.contentHeight + NotchTokens.Notification.shadowPadding
             } else {
                 totalHeight = notchHeight + contentHeight
             }
             let y = screenFrame.maxY - totalHeight
             return NSRect(x: x, y: y, width: width, height: totalHeight)
         } else {
-            let effectiveHeight = mode == .notification ? NotificationBannerView.contentHeight : contentHeight
+            let effectiveHeight = mode == .notification
+                ? NotchTokens.Notification.topMargin + NotificationBannerView.contentHeight + NotchTokens.Notification.shadowPadding
+                : contentHeight
             let y = screenFrame.maxY - effectiveHeight
             return NSRect(x: x, y: y, width: width, height: effectiveHeight)
         }

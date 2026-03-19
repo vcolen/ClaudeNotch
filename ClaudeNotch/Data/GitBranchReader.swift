@@ -8,7 +8,9 @@ struct GitBranchReader: Sendable {
     /// Returns `nil` if the directory is not a git repo or the HEAD file cannot be read.
     func readBranch(forDirectory cwd: String) -> String? {
         let fm = FileManager.default
-        let gitPath = (cwd as NSString).appendingPathComponent(".git")
+        guard let gitPath = findGitPath(from: cwd) else {
+            return nil
+        }
 
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: gitPath, isDirectory: &isDirectory) else {
@@ -39,7 +41,9 @@ struct GitBranchReader: Sendable {
     /// Handles regular repos and worktrees (follows `commondir` to the main `.git`).
     func readRemoteURL(forDirectory cwd: String) -> String? {
         let fm = FileManager.default
-        let gitPath = (cwd as NSString).appendingPathComponent(".git")
+        guard let gitPath = findGitPath(from: cwd) else {
+            return nil
+        }
 
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: gitPath, isDirectory: &isDirectory) else {
@@ -95,7 +99,30 @@ struct GitBranchReader: Sendable {
         return name.isEmpty ? nil : name
     }
 
+    /// Walks up the directory tree to find the nearest `.git` entry and returns its parent.
+    /// Returns `nil` if no `.git` is found (not a git repo).
+    func gitRootDirectory(from directory: String) -> String? {
+        guard let gitPath = findGitPath(from: directory) else { return nil }
+        return (gitPath as NSString).deletingLastPathComponent
+    }
+
     // MARK: - Private
+
+    /// Walks up from `directory` to find the nearest `.git` entry (file or directory).
+    private func findGitPath(from directory: String) -> String? {
+        let fm = FileManager.default
+        var current = directory
+        while true {
+            let gitPath = (current as NSString).appendingPathComponent(".git")
+            if fm.fileExists(atPath: gitPath) {
+                return gitPath
+            }
+            let parent = (current as NSString).deletingLastPathComponent
+            if parent == current { break }
+            current = parent
+        }
+        return nil
+    }
 
     private func readFileString(atPath path: String) -> String? {
         guard let data = FileManager.default.contents(atPath: path) else { return nil }

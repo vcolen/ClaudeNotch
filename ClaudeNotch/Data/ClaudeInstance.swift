@@ -42,7 +42,8 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
         self.id = id
         self.pid = pid
         self.cwd = cwd
-        self.projectName = (cwd as NSString).lastPathComponent
+        let gitRoot = GitBranchReader().gitRootDirectory(from: cwd)
+        self.projectName = ((gitRoot ?? cwd) as NSString).lastPathComponent
         self.status = status
         self.updatedAt = Date()
         self.tty = tty
