@@ -1,28 +1,23 @@
 import Foundation
 
-/// Reads the current git branch from a working directory by parsing `.git/HEAD`.
-/// Handles regular repos, worktrees (`.git` file with `gitdir:` pointer), and detached HEAD.
+/// Reads git information by walking up from a given directory to find the nearest .git entry,
+/// then parsing HEAD and config files. Handles regular repos, worktrees, and detached HEAD.
 struct GitBranchReader: Sendable {
 
     /// Returns the current branch name, or the first 7 chars of the SHA for detached HEAD.
-    /// Returns `nil` if the directory is not a git repo or the HEAD file cannot be read.
+    /// Returns nil if no enclosing git repo is found or the HEAD file cannot be read.
     func readBranch(forDirectory cwd: String) -> String? {
-        let fm = FileManager.default
-        let gitPath = (cwd as NSString).appendingPathComponent(".git")
-
-        var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: gitPath, isDirectory: &isDirectory) else {
-            return nil
-        }
+        guard let git = findGitPath(from: cwd) else { return nil }
+        let gitRoot = (git.path as NSString).deletingLastPathComponent
 
         let headPath: String
-        if isDirectory.boolValue {
+        if git.isDirectory {
             // Regular repo: .git is a directory
-            headPath = (gitPath as NSString).appendingPathComponent("HEAD")
+            headPath = (git.path as NSString).appendingPathComponent("HEAD")
         } else {
             // Worktree: .git is a file containing "gitdir: <path>"
-            guard let gitFileContent = readFileString(atPath: gitPath),
-                  let gitdir = parseGitdir(gitFileContent, relativeTo: cwd) else {
+            guard let gitFileContent = readFileString(atPath: git.path),
+                  let gitdir = parseGitdir(gitFileContent, relativeTo: gitRoot) else {
                 return nil
             }
             headPath = (gitdir as NSString).appendingPathComponent("HEAD")
@@ -35,24 +30,19 @@ struct GitBranchReader: Sendable {
         return parseBranch(from: headContent)
     }
 
-    /// Returns the origin remote URL for the git repo at `cwd`.
+    /// Returns the origin remote URL for the nearest enclosing git repo.
     /// Handles regular repos and worktrees (follows `commondir` to the main `.git`).
     func readRemoteURL(forDirectory cwd: String) -> String? {
-        let fm = FileManager.default
-        let gitPath = (cwd as NSString).appendingPathComponent(".git")
-
-        var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: gitPath, isDirectory: &isDirectory) else {
-            return nil
-        }
+        guard let git = findGitPath(from: cwd) else { return nil }
+        let gitRoot = (git.path as NSString).deletingLastPathComponent
 
         let configPath: String
-        if isDirectory.boolValue {
-            configPath = (gitPath as NSString).appendingPathComponent("config")
+        if git.isDirectory {
+            configPath = (git.path as NSString).appendingPathComponent("config")
         } else {
             // Worktree — follow gitdir, then commondir to find the main .git/config
-            guard let gitFileContent = readFileString(atPath: gitPath),
-                  let gitdir = parseGitdir(gitFileContent, relativeTo: cwd) else {
+            guard let gitFileContent = readFileString(atPath: git.path),
+                  let gitdir = parseGitdir(gitFileContent, relativeTo: gitRoot) else {
                 return nil
             }
             let commondirFile = (gitdir as NSString).appendingPathComponent("commondir")
@@ -95,7 +85,33 @@ struct GitBranchReader: Sendable {
         return name.isEmpty ? nil : name
     }
 
+    /// Walks up the directory tree to find the nearest `.git` entry and returns its parent.
+    /// Returns `nil` if no `.git` is found (not a git repo).
+    func gitRootDirectory(from directory: String) -> String? {
+        guard let git = findGitPath(from: directory) else { return nil }
+        return (git.path as NSString).deletingLastPathComponent
+    }
+
     // MARK: - Private
+
+    /// Walks up from `directory` to find the nearest `.git` entry (file or directory).
+    /// Returns the path and whether it is a directory.
+    private func findGitPath(from directory: String) -> (path: String, isDirectory: Bool)? {
+        guard !directory.isEmpty else { return nil }
+        let fm = FileManager.default
+        var current = directory
+        while true {
+            let gitPath = (current as NSString).appendingPathComponent(".git")
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: gitPath, isDirectory: &isDir) {
+                return (path: gitPath, isDirectory: isDir.boolValue)
+            }
+            let parent = (current as NSString).deletingLastPathComponent
+            if parent == current { break }
+            current = parent
+        }
+        return nil
+    }
 
     private func readFileString(atPath path: String) -> String? {
         guard let data = FileManager.default.contents(atPath: path) else { return nil }
@@ -103,15 +119,15 @@ struct GitBranchReader: Sendable {
     }
 
     /// Parses `gitdir: <path>` from a `.git` file and resolves relative paths.
-    private func parseGitdir(_ content: String, relativeTo cwd: String) -> String? {
+    private func parseGitdir(_ content: String, relativeTo base: String) -> String? {
         guard content.hasPrefix("gitdir: ") else { return nil }
         let rawPath = String(content.dropFirst("gitdir: ".count))
 
         if rawPath.hasPrefix("/") {
             return rawPath
         }
-        // Relative path — resolve against cwd
-        let resolved = (cwd as NSString).appendingPathComponent(rawPath)
+        // Relative path — resolve against base (the directory containing the .git entry)
+        let resolved = (base as NSString).appendingPathComponent(rawPath)
         return (resolved as NSString).standardizingPath
     }
 

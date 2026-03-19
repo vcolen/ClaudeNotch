@@ -731,6 +731,50 @@ struct InstanceManagerTests {
         #expect(manager.instances.isEmpty)
     }
 
+    // MARK: - Project Name from Git Root
+
+    @Test("projectName uses git root name when cwd is a subdirectory")
+    @MainActor func projectNameUsesGitRootFromSubdirectory() throws {
+        let tmp = NSTemporaryDirectory() + "InstanceManagerTests-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+
+        // Create a git repo at tmp/my-cool-repo/.git
+        let repoRoot = (tmp as NSString).appendingPathComponent("my-cool-repo")
+        let gitDir = (repoRoot as NSString).appendingPathComponent(".git")
+        try FileManager.default.createDirectory(atPath: gitDir, withIntermediateDirectories: true)
+        try "ref: refs/heads/main\n".write(
+            toFile: (gitDir as NSString).appendingPathComponent("HEAD"),
+            atomically: true, encoding: .utf8
+        )
+
+        // Create a subdirectory
+        let subDir = (repoRoot as NSString).appendingPathComponent("packages/frontend")
+        try FileManager.default.createDirectory(atPath: subDir, withIntermediateDirectories: true)
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: subDir,
+            status: "processing", tty: nil, tool: nil
+        ))
+        // projectName should be the repo root name, not "frontend"
+        #expect(manager.instances["s1"]?.projectName == "my-cool-repo")
+    }
+
+    @Test("projectName falls back to directory name when not in a git repo")
+    @MainActor func projectNameFallsBackToDirectoryName() throws {
+        let tmp = NSTemporaryDirectory() + "InstanceManagerTests-\(UUID().uuidString)"
+        let dir = (tmp as NSString).appendingPathComponent("standalone-dir")
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: dir,
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.projectName == "standalone-dir")
+    }
+
     @Test("'ended' event with PID 0 still removes instance")
     @MainActor func endedEventWithPidZeroRemovesInstance() {
         let manager = InstanceManager(skipBootstrap: true)

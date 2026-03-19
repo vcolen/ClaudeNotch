@@ -152,7 +152,8 @@ final class InstanceManager {
         instance.pid = pid
         if instance.cwd != cwd {
             instance.cwd = cwd
-            instance.projectName = (cwd as NSString).lastPathComponent
+            let gitRoot = branchReader.gitRootDirectory(from: cwd)
+            instance.projectName = ((gitRoot ?? cwd) as NSString).lastPathComponent
             instance.branchName = branchReader.readBranch(forDirectory: cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: cwd)
         }
@@ -214,6 +215,8 @@ final class InstanceManager {
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
             } else {
                 let instance = ClaudeInstance(id: resolvedId, pid: inst.pid, cwd: inst.cwd, status: status)
+                let gitRoot = branchReader.gitRootDirectory(from: inst.cwd)
+                instance.projectName = ((gitRoot ?? inst.cwd) as NSString).lastPathComponent
                 instance.branchName = branchReader.readBranch(forDirectory: inst.cwd)
                 instance.remoteURL = branchReader.readRemoteURL(forDirectory: inst.cwd)
                 instances[resolvedId] = instance
@@ -310,6 +313,8 @@ final class InstanceManager {
                 id: event.sessionId, pid: event.pid, cwd: event.cwd,
                 status: mappedStatus, tty: event.tty
             )
+            let gitRoot = branchReader.gitRootDirectory(from: event.cwd)
+            instance.projectName = ((gitRoot ?? event.cwd) as NSString).lastPathComponent
             instance.lastSocketEventAt = Date()
             instance.branchName = branchReader.readBranch(forDirectory: event.cwd)
             instance.remoteURL = branchReader.readRemoteURL(forDirectory: event.cwd)
