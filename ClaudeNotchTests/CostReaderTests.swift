@@ -27,7 +27,7 @@ struct CostReaderTests {
         #expect(abs((info?.contextPercent ?? 0) - 0.395535) < 0.001)
     }
 
-    @Test("Zero tokens returns nil context percentage")
+    @Test("Zero tokens returns zero context percentage")
     func zeroTokensNilContext() {
         let json = """
         {
@@ -193,6 +193,122 @@ struct CostReaderTests {
         """
         let info = parseCostJSON(json)
         // Should use explicit 1M, not 200K from model string: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    // MARK: - Edge cases
+
+    @Test("Negative cache_read returns nil context percentage")
+    func negativeCacheReadReturnsNil() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": -500 },
+            "last_model": "opus 4.6 (1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        #expect(info?.contextPercent == nil)
+    }
+
+    @Test("context_window of 0 falls back to model string")
+    func zeroContextWindowFallsBack() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (1m context)",
+            "context_window": 0
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 1M from model string: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Negative context_window falls back to model string")
+    func negativeContextWindowFallsBack() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (1m context)",
+            "context_window": -500000
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 1M from model string: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Absurdly large context_window falls back to model string")
+    func absurdContextWindowFallsBack() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (1m context)",
+            "context_window": 999999999
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 1M from model string: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Negative model string falls back to default")
+    func negativeModelStringFallsBack() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 100000 },
+            "last_model": "model (-1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 200K default: 100000 / 200000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Mixed-case model string parses correctly")
+    func mixedCaseModelString() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "Opus 4.6 (1M Context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should parse 1M: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Unrecognized suffix falls back to default")
+    func unrecognizedSuffixFallsBack() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 100000 },
+            "last_model": "model (500g context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 200K default: 100000 / 200000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Nested parentheses extracts last context annotation")
+    func nestedParentheses() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (beta) (1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should parse 1M from last parenthesized group: 500000 / 1000000 = 0.5
         #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
     }
 
