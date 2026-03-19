@@ -185,8 +185,12 @@ struct NotchView: View {
     private func enterNotificationMode() {
         notificationDebounceTask?.cancel()
         notificationDebounceTask = Task {
-            try? await Task.sleep(for: NotchTokens.Notification.debounceDelay)
-            guard !Task.isCancelled, panelState.mode == .collapsed else {
+            do {
+                try await Task.sleep(for: NotchTokens.Notification.debounceDelay)
+            } catch {
+                return
+            }
+            guard panelState.mode == .collapsed else {
                 NSLog("NotchView: notification debounce cancelled or mode changed (mode=%@)", "\(panelState.mode)")
                 return
             }
@@ -199,7 +203,10 @@ struct NotchView: View {
 
             // Build items without terminal indices first so we can show the banner immediately
             var items: [NotificationItem] = instances.compactMap { inst in
-                guard let attentionType = inst.attentionType else { return nil }
+                guard let attentionType = inst.attentionType else {
+                    assertionFailure("Instance \(inst.id) in needsAttentionInstances but attentionType is nil")
+                    return nil
+                }
                 return NotificationItem(
                     instanceId: inst.id,
                     projectName: inst.projectName,
@@ -210,7 +217,7 @@ struct NotchView: View {
                     attentionType: attentionType
                 )
             }
-            .sorted { $0.attentionType.sortPriority < $1.attentionType.sortPriority }
+            .sorted { $0.attentionType < $1.attentionType }
 
             guard !items.isEmpty else { return }
 

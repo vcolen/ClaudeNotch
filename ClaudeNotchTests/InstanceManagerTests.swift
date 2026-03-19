@@ -660,34 +660,6 @@ struct InstanceManagerTests {
         #expect(manager.activeCount == 0)
     }
 
-    @Test("needsAttentionGroups groups correctly")
-    @MainActor func needsAttentionGroupsCorrect() {
-        let manager = InstanceManager(skipBootstrap: true)
-        // Two instances in same project
-        manager.handleSocketEvent(.init(
-            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
-            status: "processing", tty: nil, tool: nil
-        ))
-        manager.handleSocketEvent(.init(
-            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
-            status: "processing", tty: nil, tool: nil
-        ))
-        // Transition both to waiting (sets attention)
-        manager.handleSocketEvent(.init(
-            sessionId: "s1", pid: 100, cwd: "/tmp/proj",
-            status: "waiting_for_input", tty: nil, tool: nil
-        ))
-        manager.handleSocketEvent(.init(
-            sessionId: "s2", pid: 101, cwd: "/tmp/proj",
-            status: "waiting_for_input", tty: nil, tool: nil
-        ))
-
-        let groups = manager.needsAttentionGroups
-        #expect(groups.count == 1)
-        #expect(groups[0].count == 2)
-        #expect(groups[0].displayName == "proj")
-    }
-
     // MARK: - Socket Event Edge Cases
 
     @Test("updatedAt is refreshed by subagent socket events")
@@ -1054,5 +1026,91 @@ struct InstanceManagerTests {
         ])
         manager.sync(from: stateFile2)
         #expect(manager.instances["s1"]?.attentionType == .taskFinished)
+    }
+
+    // MARK: - Socket Grace Window Suppression
+
+    @Test("State file sync defers to recent socket event")
+    @MainActor func stateFileSyncDefersToRecentSocketEvent() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create working instance via socket (sets lastSocketEventAt to now)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // State file reports waiting_for_input — should be suppressed by socket grace
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.attentionType == nil)
+        #expect(manager.instances["s1"]?.status == .working)
+    }
+
+    // MARK: - Attention Type Coverage
+
+    @Test("Working to waiting_for_approval sets attentionType .needsInput")
+    @MainActor func workingToWaitingForApprovalSetsNeedsInput() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "waiting_for_approval", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .needsInput)
+    }
+
+    @Test("clearAttention resets .taskFinished attentionType to nil")
+    @MainActor func clearAttentionOnTaskFinished() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "processing", tty: nil, tool: nil
+        ))
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "unknown", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.attentionType == .taskFinished)
+
+        manager.clearAttention(for: "s1")
+        #expect(manager.instances["s1"]?.attentionType == nil)
+        #expect(manager.instances["s1"]?.needsAttention == false)
+    }
+
+    // MARK: - TerminalFocusMonitor Eligibility
+
+    @Test("Attention set recently is NOT eligible for clearing")
+    @MainActor func recentAttentionNotEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test", status: .working)
+        instance.transition(to: .waitingInput)
+        #expect(instance.attentionSetAt != nil)
+
+        let now = Date()
+        #expect(!TerminalFocusMonitor.isEligibleForClearing(instance, at: now))
+    }
+
+    @Test("Attention set long ago IS eligible for clearing")
+    @MainActor func oldAttentionIsEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test", status: .working)
+        instance.transition(to: .waitingInput)
+
+        let future = Date().addingTimeInterval(TerminalFocusMonitor.attentionGracePeriod + 1)
+        #expect(TerminalFocusMonitor.isEligibleForClearing(instance, at: future))
+    }
+
+    @Test("Nil attentionSetAt IS eligible for clearing")
+    @MainActor func nilAttentionSetAtIsEligible() {
+        let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test")
+        #expect(instance.attentionSetAt == nil)
+        #expect(TerminalFocusMonitor.isEligibleForClearing(instance, at: Date()))
     }
 }

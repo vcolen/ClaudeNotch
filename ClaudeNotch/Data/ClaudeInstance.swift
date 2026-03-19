@@ -1,31 +1,14 @@
 import Foundation
 import Observation
-import SwiftUI
 
-enum AttentionType: String, CaseIterable, Sendable {
-    case needsInput     // working -> waitingInput
-    case taskFinished   // working -> idle
+enum AttentionType: String, CaseIterable, Comparable, Sendable {
+    case needsInput     // triggered by: working -> waitingInput
+    case taskFinished   // triggered by: working -> any non-working state except waitingInput
 
-    var color: Color {
-        switch self {
-        case .needsInput:  return NotchTokens.Status.needsInput
-        case .taskFinished: return NotchTokens.Status.taskFinished
-        }
-    }
-
-    var displayName: String {
-        switch self {
-        case .needsInput:  return "Needs Input"
-        case .taskFinished: return "Finished"
-        }
-    }
-
-    /// Lower value = higher priority in sort order and notification queue
-    var sortPriority: Int {
-        switch self {
-        case .needsInput:  return 0
-        case .taskFinished: return 1
-        }
+    static func < (lhs: AttentionType, rhs: AttentionType) -> Bool {
+        guard let lhsIdx = allCases.firstIndex(of: lhs),
+              let rhsIdx = allCases.firstIndex(of: rhs) else { return false }
+        return lhsIdx < rhsIdx
     }
 }
 
@@ -49,7 +32,7 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var pid: Int
     var cwd: String
     var projectName: String
-    var status: InstanceStatus
+    private(set) var status: InstanceStatus
     var updatedAt: Date
     var tty: String?
     var cost: Double?
@@ -58,10 +41,15 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
     var lastTool: String?
     var branchName: String?
     var remoteURL: String?
-    var attentionType: AttentionType? = nil
+    private(set) var attentionType: AttentionType?
+    /// Timestamp when attentionType was last set to a non-nil value.
+    /// Used by TerminalFocusMonitor (grace period before auto-clearing)
+    /// and state-file sync (to avoid suppressing recent attention).
+    private(set) var attentionSetAt: Date?
     var needsAttention: Bool { attentionType != nil }
     /// Timestamp of the last socket event for this instance.
-    /// State file polling defers to socket events within a grace window.
+    /// Used by state-file sync (defers to recent socket events within a grace window)
+    /// and TerminalFocusMonitor (factors into attention eligibility).
     var lastSocketEventAt: Date?
 
     init(
@@ -78,5 +66,26 @@ final class ClaudeInstance: Identifiable, @unchecked Sendable {
         self.status = status
         self.updatedAt = Date()
         self.tty = tty
+    }
+
+    /// Encapsulates status and attention state transitions.
+    /// attentionType is set when leaving .working and cleared when entering .working.
+    /// It intentionally persists across non-working transitions (e.g. waitingInput -> idle)
+    /// so the notification stays visible until the user explicitly clears it.
+    func transition(to newStatus: InstanceStatus) {
+        let previousStatus = status
+        status = newStatus
+        if previousStatus == .working && newStatus != .working {
+            attentionType = (newStatus == .waitingInput) ? .needsInput : .taskFinished
+            attentionSetAt = Date()
+        } else if newStatus == .working {
+            attentionType = nil
+            attentionSetAt = nil
+        }
+    }
+
+    func clearAttention() {
+        attentionType = nil
+        attentionSetAt = nil
     }
 }

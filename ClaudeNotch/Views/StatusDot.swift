@@ -3,20 +3,21 @@ import SwiftUI
 struct StatusDot: View {
     let status: InstanceStatus
     var isVisible: Bool = true
-    var attentionColor: Color? = nil
+    var attentionType: AttentionType? = nil
 
     @State private var isPulsing = false
     @State private var attentionPulse = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var isAttention: Bool { attentionColor != nil }
+    private var isAttention: Bool { attentionType != nil }
+    private var attentionColor: Color? { attentionType?.color }
 
     private var shouldWorkingPulse: Bool {
         status == .working && isVisible && !isAttention
     }
 
     private var primaryShadowColor: Color {
-        if isAttention { return attentionColor!.opacity(0.5) }
+        if let color = attentionColor { return color.opacity(0.5) }
         if status == .working { return status.color.opacity(0.5) }
         return .clear
     }
@@ -38,7 +39,7 @@ struct StatusDot: View {
 
     var body: some View {
         Circle()
-            .fill(isAttention ? attentionColor! : status.color)
+            .fill(attentionColor ?? status.color)
             .frame(width: 7, height: 7)
             .shadow(color: primaryShadowColor, radius: 3)
             .shadow(color: secondaryShadowColor, radius: 2)
@@ -71,8 +72,8 @@ struct StatusDot: View {
             .onChange(of: isVisible) { _, _ in
                 updatePulseState(isAttention: isAttention)
             }
-            .onChange(of: attentionColor) { _, newColor in
-                updatePulseState(isAttention: newColor != nil)
+            .onChange(of: attentionType) { _, newType in
+                updatePulseState(isAttention: newType != nil)
             }
     }
 }
@@ -82,8 +83,8 @@ struct StatusDot: View {
         StatusDot(status: .working)
         StatusDot(status: .waitingInput)
         StatusDot(status: .idle)
-        StatusDot(status: .waitingInput, attentionColor: NotchTokens.Status.needsInput)
-        StatusDot(status: .idle, attentionColor: NotchTokens.Status.taskFinished)
+        StatusDot(status: .waitingInput, attentionType: .needsInput)
+        StatusDot(status: .idle, attentionType: .taskFinished)
     }
     .padding()
     .background(Color.black)

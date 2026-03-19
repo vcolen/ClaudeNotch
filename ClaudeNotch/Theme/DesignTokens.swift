@@ -88,6 +88,31 @@ extension InstanceStatus {
     }
 }
 
+// MARK: - AttentionType Presentation
+
+extension AttentionType {
+    var color: Color {
+        switch self {
+        case .needsInput:  return NotchTokens.Status.needsInput
+        case .taskFinished: return NotchTokens.Status.taskFinished
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .needsInput:  return "Needs Input"
+        case .taskFinished: return "Finished"
+        }
+    }
+
+    var bannerTitle: String {
+        switch self {
+        case .needsInput:  return "Claude needs input"
+        case .taskFinished: return "Claude finished task"
+        }
+    }
+}
+
 // MARK: - ClaudeInstance Display Color
 
 extension ClaudeInstance {

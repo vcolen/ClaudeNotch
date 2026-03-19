@@ -20,6 +20,10 @@ final class InstanceManager {
     /// Must exceed the state file polling interval (2s) to avoid flicker during sync gaps.
     private static let staleGracePeriod: TimeInterval = 5
 
+    /// Grace period during which state-file sync defers to recent socket events.
+    /// Prevents the state file (which may lag) from overriding fresh socket-driven transitions.
+    private static let socketGracePeriod: TimeInterval = 5
+
     #if DEBUG
     /// Override for testing; when set, replaces the real process-liveness check.
     nonisolated(unsafe) static var testProcessAliveOverride: ((Int) -> Bool)?
@@ -51,7 +55,8 @@ final class InstanceManager {
 
     var sortedInstances: [ClaudeInstance] {
         let attentionSorted = needsAttentionInstances.sorted {
-            ($0.attentionType?.sortPriority ?? 99) < ($1.attentionType?.sortPriority ?? 99)
+            guard let a = $0.attentionType, let b = $1.attentionType else { return false }
+            return a < b
         }
         return attentionSorted + workingInstances + waitingInstances + idleInstances
     }
@@ -68,10 +73,6 @@ final class InstanceManager {
 
     var idleGroups: [ProjectGroup] {
         groupByProject(idleInstances)
-    }
-
-    var needsAttentionGroups: [ProjectGroup] {
-        groupByProject(needsAttentionInstances)
     }
 
     var needsInputGroups: [ProjectGroup] {
@@ -112,20 +113,7 @@ final class InstanceManager {
     // MARK: - Attention Management
 
     func clearAttention(for sessionId: String) {
-        instances[sessionId]?.attentionType = nil
-    }
-
-    private func applyStatusTransition(on instance: ClaudeInstance, newStatus: InstanceStatus) {
-        let previousStatus = instance.status
-        instance.status = newStatus
-        // attentionType is set when leaving .working and cleared when entering .working.
-        // It intentionally persists across non-working transitions (e.g. waitingInput → idle)
-        // so the notification stays visible until the user explicitly clears it.
-        if previousStatus == .working && newStatus != .working {
-            instance.attentionType = (newStatus == .waitingInput) ? .needsInput : .taskFinished
-        } else if newStatus == .working {
-            instance.attentionType = nil
-        }
+        instances[sessionId]?.clearAttention()
     }
 
     init(skipBootstrap: Bool = false) {
@@ -206,12 +194,15 @@ final class InstanceManager {
                 // Skip status transitions for deduped (subagent) entries —
                 // subagent status changes should not trigger attention alerts on the canonical instance.
                 // Also defer to recent socket events — the state file may lag behind.
-                let socketGrace: TimeInterval = 30
                 let hasRecentSocketEvent = existing.lastSocketEventAt.map {
-                    Date().timeIntervalSince($0) < socketGrace
+                    Date().timeIntervalSince($0) < Self.socketGracePeriod
                 } ?? false
-                if !isDedupedEntry && existing.status != status && !hasRecentSocketEvent {
-                    applyStatusTransition(on: existing, newStatus: status)
+                if !isDedupedEntry && existing.status != status {
+                    if hasRecentSocketEvent {
+                        NSLog("InstanceManager: suppressing state-file transition for '%@' — socket event %.1fs ago", resolvedId, Date().timeIntervalSince(existing.lastSocketEventAt!))
+                    } else {
+                        existing.transition(to: status)
+                    }
                 }
                 existing.updatedAt = Date()
                 updateInstanceMetadata(existing, pid: inst.pid, cwd: inst.cwd)
@@ -299,7 +290,7 @@ final class InstanceManager {
             // Only apply status transitions from the session's own events (isDirectMatch),
             // not from subagent events resolved via PID (which would cause false attention alerts)
             if isDirectMatch && existing.status != mappedStatus {
-                applyStatusTransition(on: existing, newStatus: mappedStatus)
+                existing.transition(to: mappedStatus)
             }
             existing.updatedAt = Date()
             existing.lastSocketEventAt = Date()

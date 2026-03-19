@@ -28,10 +28,10 @@ struct NotificationBannerView: View {
 
     private func bannerContent(item: NotificationItem) -> some View {
         HStack(spacing: 8) {
-            StatusDot(status: .waitingInput, isVisible: true, attentionColor: item.attentionType.color)
+            StatusDot(status: .waitingInput, isVisible: true, attentionType: item.attentionType)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.attentionType == .needsInput ? "Claude needs input" : "Claude finished task")
+                Text(item.attentionType.bannerTitle)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)

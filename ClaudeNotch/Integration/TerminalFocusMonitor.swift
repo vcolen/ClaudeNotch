@@ -84,7 +84,13 @@ final class TerminalFocusMonitor {
 
     /// Grace period after attention is set before the monitor can clear it.
     /// Gives the notification banner time to appear and be seen.
-    private static let attentionGracePeriod: TimeInterval = 6
+    nonisolated static let attentionGracePeriod: TimeInterval = 6
+
+    /// Returns true if the instance's attention has been set long enough to be eligible for clearing.
+    nonisolated static func isEligibleForClearing(_ instance: ClaudeInstance, at now: Date = Date()) -> Bool {
+        guard let setAt = instance.attentionSetAt else { return true }
+        return now.timeIntervalSince(setAt) >= attentionGracePeriod
+    }
 
     private func checkActiveSession() async {
         guard isITermFocused, ITermIntegration.isITermRunning() else {
@@ -101,8 +107,7 @@ final class TerminalFocusMonitor {
 
         // Don't clear attention that was recently set — let the notification show first
         let eligibleInstances = attentionInstances.filter { inst in
-            guard let socketAt = inst.lastSocketEventAt else { return true }
-            return now.timeIntervalSince(socketAt) >= Self.attentionGracePeriod
+            Self.isEligibleForClearing(inst, at: now)
         }
         guard !eligibleInstances.isEmpty else { return }
 
