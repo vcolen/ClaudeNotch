@@ -925,6 +925,96 @@ struct InstanceManagerTests {
         #expect(manager.instances.isEmpty)
     }
 
+    // MARK: - Socket Priority over State File
+
+    @Test("Socket-set working status not overwritten by state file idle")
+    @MainActor func socketStatusNotOverwrittenByStateFile() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket event (sets lastSocketEventAt)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // Sync state file reporting 'unknown' (maps to .idle) — should not override socket status
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        // Status must remain .working — socket is authoritative
+        #expect(manager.instances["s1"]?.status == .working)
+    }
+
+    @Test("State file can update status for instances with no socket events")
+    @MainActor func stateFileUpdatesStatusWithoutSocketEvents() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via state file (no socket events)
+        let stateFile1 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile1)
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // Sync again with different status — should update normally
+        let stateFile2 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile2)
+        #expect(manager.instances["s1"]?.status == .waitingInput)
+    }
+
+    @Test("New socket event instance has lastSocketEventAt set")
+    @MainActor func newSocketInstanceHasLastSocketEventAt() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
+    }
+
+    @Test("State-file-created instance has no lastSocketEventAt")
+    @MainActor func stateFileInstanceHasNoLastSocketEventAt() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.lastSocketEventAt == nil)
+    }
+
+    @Test("Subagent socket event does NOT set lastSocketEventAt on canonical")
+    @MainActor func subagentDoesNotSetLastSocketEventAtOnCanonical() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create parent via state file (naturally has no socket history)
+        let stateFile = InstanceManager.StateFile(instances: [
+            "parent": .init(status: "active", pid: 200, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["parent"]?.lastSocketEventAt == nil)
+
+        // Subagent event (different session_id, same PID) — resolved via PID dedup
+        manager.handleSocketEvent(.init(
+            sessionId: "subagent", pid: 200, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Subagent event is NOT a direct match, so lastSocketEventAt should remain nil
+        #expect(manager.instances["parent"]?.lastSocketEventAt == nil)
+    }
+
     @Test("State file sync sets updatedAt on existing instances")
     @MainActor func stateFileSyncSetsUpdatedAt() {
         InstanceManager.testProcessAliveOverride = { _ in true }
@@ -946,5 +1036,143 @@ struct InstanceManagerTests {
         ])
         manager.sync(from: stateFile)
         #expect(manager.instances["s1"]!.updatedAt > oldDate)
+    }
+
+    // MARK: - Socket Recency Window
+
+    @Test("Socket-to-socket transition works when socket is authoritative")
+    @MainActor func socketToSocketTransitionWorks() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket (working)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // State file with idle — should be blocked by socket recency
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // New socket event with waiting_for_input — socket-to-socket should work
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "waiting_for_input", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .waitingInput)
+        #expect(manager.instances["s1"]?.needsAttention == true)
+    }
+
+    @Test("Removed and recreated instance starts with no socket history")
+    @MainActor func removedAndRecreatedInstanceStartsFresh() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
+
+        // Age past stale threshold so removal can happen
+        manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
+
+        // Sync with empty state file — removes the stale instance
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances.isEmpty)
+
+        // Recreate via state file with different status
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.lastSocketEventAt == nil)
+        #expect(manager.instances["s1"]?.status == .waitingInput)
+    }
+
+    @Test("State-file instance becomes socket-managed on first socket event")
+    @MainActor func stateFileInstanceBecomesSocketManaged() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create via state file
+        let stateFile1 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "active", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile1)
+        #expect(manager.instances["s1"]?.lastSocketEventAt == nil)
+
+        // First socket event sets lastSocketEventAt
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
+
+        // State file with different status — blocked by socket recency
+        let stateFile2 = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "waiting_for_input", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile2)
+        #expect(manager.instances["s1"]?.status == .working)
+    }
+
+    @Test("updatedAt refreshed even when socket status blocks state file update")
+    @MainActor func updatedAtRefreshedWhenSocketBlocks() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create via socket
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Age updatedAt slightly
+        let oldDate = Date().addingTimeInterval(-1)
+        manager.instances["s1"]!.updatedAt = oldDate
+
+        // State file with different status — blocked by socket recency, but updatedAt should refresh
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.status == .working)
+        #expect(manager.instances["s1"]!.updatedAt > oldDate)
+    }
+
+    @Test("State file regains authority after socket recency expires")
+    @MainActor func stateFileRegainsAuthorityAfterRecencyExpires() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create via socket (working)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .working)
+
+        // Age lastSocketEventAt past the recency window
+        manager.instances["s1"]!.lastSocketEventAt = Date().addingTimeInterval(
+            -(InstanceManager.socketRecencyWindow + 1)
+        )
+
+        // State file with idle status — should now be applied
+        let stateFile = InstanceManager.StateFile(instances: [
+            "s1": .init(status: "unknown", pid: 100, cwd: "/tmp/project"),
+        ])
+        manager.sync(from: stateFile)
+        #expect(manager.instances["s1"]?.status == .idle)
     }
 }
