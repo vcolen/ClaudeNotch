@@ -57,7 +57,7 @@ struct CostReaderTests {
         #expect(info?.contextPercent == nil)
     }
 
-    @Test("Context over 200K tokens is capped at 100%")
+    @Test("Context exceeding window is capped at 100%")
     func contextCappedAt100Percent() {
         let json = """
         {
@@ -99,37 +99,107 @@ struct CostReaderTests {
         #expect(info?.contextPercent == nil)
     }
 
+    // MARK: - Dynamic context window
+
+    @Test("1M model at 500K tokens reports 50%")
+    func oneMegModelHalfUsed() {
+        let json = """
+        {
+            "total_cost": 3.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("1M model at 600K tokens reports 60%, not capped at 200K")
+    func oneMegModelNotFalselyCapped() {
+        let json = """
+        {
+            "total_cost": 3.0,
+            "last_tokens": { "cache_read": 600000 },
+            "last_model": "opus 4.6 (1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        #expect(abs((info?.contextPercent ?? 0) - 0.6) < 0.001)
+    }
+
+    @Test("1M model exceeding window is capped at 100%")
+    func oneMegModelCapped() {
+        let json = """
+        {
+            "total_cost": 5.0,
+            "last_tokens": { "cache_read": 1200000 },
+            "last_model": "opus 4.6 (1m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        #expect(info?.contextPercent == 1.0)
+    }
+
+    @Test("200K model at 100K tokens reports 50%")
+    func twoHundredKModel() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 100000 },
+            "last_model": "sonnet 4 (200k context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Unannotated model falls back to 200K default")
+    func unannotatedModelDefault() {
+        let json = """
+        {
+            "total_cost": 2.43,
+            "last_tokens": { "cache_read": 79000 },
+            "last_model": "opus 4.6"
+        }
+        """
+        let info = parseCostJSON(json)
+        // 79000 / 200000 = 0.395
+        #expect(abs((info?.contextPercent ?? 0) - 0.395) < 0.001)
+    }
+
+    @Test("Zero context size in model string falls back to default")
+    func zeroContextFallback() {
+        let json = """
+        {
+            "total_cost": 1.0,
+            "last_tokens": { "cache_read": 100000 },
+            "last_model": "model (0m context)"
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use 200K default: 100000 / 200000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
+    @Test("Explicit context_window JSON field is preferred over model string")
+    func explicitContextWindowField() {
+        let json = """
+        {
+            "total_cost": 2.0,
+            "last_tokens": { "cache_read": 500000 },
+            "last_model": "opus 4.6 (200k context)",
+            "context_window": 1000000
+        }
+        """
+        let info = parseCostJSON(json)
+        // Should use explicit 1M, not 200K from model string: 500000 / 1000000 = 0.5
+        #expect(abs((info?.contextPercent ?? 0) - 0.5) < 0.001)
+    }
+
     // MARK: - Helper
 
-    /// Parses cost JSON directly without needing file I/O.
-    /// Mirrors the CostReader's internal parsing logic.
     private func parseCostJSON(_ json: String) -> CostInfo? {
         guard let data = json.data(using: .utf8) else { return nil }
-
-        struct CostFile: Decodable {
-            let total_cost: Double?
-            let last_tokens: LastTokens?
-            let last_model: String?
-
-            struct LastTokens: Decodable {
-                let cache_read: Int?
-            }
-        }
-
-        guard let file = try? JSONDecoder().decode(CostFile.self, from: data) else {
-            return nil
-        }
-
-        let totalCost = file.total_cost ?? 0.0
-        let contextPercent: Double? = {
-            guard let cacheRead = file.last_tokens?.cache_read else { return nil }
-            return min(Double(cacheRead) / 200_000.0, 1.0)
-        }()
-
-        return CostInfo(
-            totalCost: totalCost,
-            model: file.last_model,
-            contextPercent: contextPercent
-        )
+        return CostReader.parseCostFile(data)
     }
 }

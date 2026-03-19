@@ -10,7 +10,31 @@ struct CostInfo {
 /// Files live at ~/.claude-work/cost-tracker/sessions/{pid}-{date}.json
 /// or ~/.claude/cost-tracker/sessions/{pid}-{date}.json (personal accounts).
 struct CostReader {
-    private static let contextWindow: Double = 200_000.0
+    private static let defaultContextWindow: Double = 200_000.0
+
+    private static func contextWindow(fromModel model: String?) -> Double {
+        guard let model = model?.lowercased(),
+              let openParen = model.lastIndex(of: "("),
+              let closeParen = model.lastIndex(of: ")"),
+              openParen < closeParen else {
+            return defaultContextWindow
+        }
+        let inner = String(model[model.index(after: openParen)..<closeParen])
+            .trimmingCharacters(in: .whitespaces)
+        guard inner.hasSuffix("context") else { return defaultContextWindow }
+        let sizeStr = inner.dropLast("context".count)
+            .trimmingCharacters(in: .whitespaces)
+        let value: Double
+        if sizeStr.hasSuffix("m"), let num = Double(sizeStr.dropLast()) {
+            value = num * 1_000_000
+        } else if sizeStr.hasSuffix("k"), let num = Double(sizeStr.dropLast()) {
+            value = num * 1_000
+        } else {
+            return defaultContextWindow
+        }
+        return value > 0 ? value : defaultContextWindow
+    }
+
     private let sessionsDirs: [String]
 
     init() {
@@ -55,7 +79,7 @@ struct CostReader {
             return nil
         }
 
-        return parseCostFile(data)
+        return Self.parseCostFile(data)
     }
 
     // MARK: - Parsing
@@ -64,13 +88,14 @@ struct CostReader {
         let total_cost: Double?
         let last_tokens: LastTokens?
         let last_model: String?
+        let context_window: Int?
 
         struct LastTokens: Decodable {
             let cache_read: Int?
         }
     }
 
-    private func parseCostFile(_ data: Data) -> CostInfo? {
+    static func parseCostFile(_ data: Data) -> CostInfo? {
         let file: CostFile
         do {
             file = try JSONDecoder().decode(CostFile.self, from: data)
@@ -83,7 +108,13 @@ struct CostReader {
 
         let contextPercent: Double? = {
             guard let cacheRead = file.last_tokens?.cache_read else { return nil }
-            return min(Double(cacheRead) / Self.contextWindow, 1.0)
+            let window: Double
+            if let explicit = file.context_window, explicit > 0 {
+                window = Double(explicit)
+            } else {
+                window = Self.contextWindow(fromModel: file.last_model)
+            }
+            return min(Double(cacheRead) / window, 1.0)
         }()
 
         return CostInfo(
