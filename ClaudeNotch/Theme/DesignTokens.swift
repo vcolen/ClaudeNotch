@@ -68,6 +68,9 @@ enum NotchTokens {
         static let selectionFadeIn: Double = 0.25
         static let selectionFadeOut: Double = 0.5
 
+        static let workingPulseDuration: Double = 1.1
+        static let attentionPulseDuration: Double = 1.5
+
         /// Returns a stagger delay for the given index, capping total stagger at 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {
             guard total > 1 else { return 0 }
