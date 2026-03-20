@@ -48,13 +48,13 @@ struct StatusDot: View {
             .transaction { $0.animation = nil }
             .animation(
                 shouldWorkingPulse && !reduceMotion
-                    ? .easeInOut(duration: 1.1).repeatForever(autoreverses: true)
+                    ? .easeInOut(duration: NotchTokens.Animation.workingPulseDuration).repeatForever(autoreverses: true)
                     : .default,
                 value: isPulsing
             )
             .animation(
                 isAttention && !reduceMotion
-                    ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+                    ? .easeInOut(duration: NotchTokens.Animation.attentionPulseDuration).repeatForever(autoreverses: true)
                     : .default,
                 value: attentionPulse
             )
