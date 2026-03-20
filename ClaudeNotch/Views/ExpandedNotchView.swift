@@ -6,6 +6,7 @@ struct ExpandedNotchView: View {
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
     @State private var isRevealed = false
+    // Managed inline because hover state drives foreground text opacity.
     @State private var isButtonHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -23,13 +24,9 @@ struct ExpandedNotchView: View {
         }
         .frame(maxWidth: .infinity)
         .onAppear {
-            isRevealed = false
-            if reduceMotion {
+            if !reduceMotion { isRevealed = false }
+            withMotionAnimation(NotchTokens.Animation.contentReveal, reduceMotion: reduceMotion) {
                 isRevealed = true
-            } else {
-                withAnimation(NotchTokens.Animation.contentReveal) {
-                    isRevealed = true
-                }
             }
         }
     }
@@ -142,12 +139,8 @@ struct ExpandedNotchView: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .onHover { hovering in
-            if reduceMotion {
+            withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
                 isButtonHovered = hovering
-            } else {
-                withAnimation(NotchTokens.Animation.hoverQuick) {
-                    isButtonHovered = hovering
-                }
             }
         }
     }

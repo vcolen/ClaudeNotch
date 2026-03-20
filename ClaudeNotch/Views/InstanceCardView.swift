@@ -4,6 +4,7 @@ struct InstanceCardView: View {
     let instance: ClaudeInstance
     var onTap: ((ClaudeInstance) -> Void)?
 
+    // Hover state managed inline because it drives overlay effects (status bleed, edge highlight) beyond the background fill that HoverHighlight provides.
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -100,12 +101,8 @@ struct InstanceCardView: View {
         }
         .contentShape(Rectangle())
         .onHover { hovering in
-            if reduceMotion {
+            withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
                 isHovered = hovering
-            } else {
-                withAnimation(NotchTokens.Animation.hoverQuick) {
-                    isHovered = hovering
-                }
             }
         }
         .onTapGesture {

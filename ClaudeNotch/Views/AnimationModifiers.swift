@@ -1,5 +1,21 @@
 import SwiftUI
 
+// MARK: - Motion-aware Animation
+
+func withMotionAnimation<Result>(
+    _ animation: Animation?,
+    reduceMotion: Bool,
+    body: () throws -> Result
+) rethrows -> Result {
+    if reduceMotion {
+        return try body()
+    } else {
+        return try withAnimation(animation) {
+            try body()
+        }
+    }
+}
+
 // MARK: - HoverHighlight
 
 struct HoverHighlight: ViewModifier {
@@ -18,12 +34,8 @@ struct HoverHighlight: ViewModifier {
             )
             .contentShape(Rectangle())
             .onHover { hovering in
-                if reduceMotion {
+                withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
                     isHovered = hovering
-                } else {
-                    withAnimation(NotchTokens.Animation.hoverQuick) {
-                        isHovered = hovering
-                    }
                 }
             }
     }
@@ -55,7 +67,7 @@ struct StaggerReveal: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(isRevealed ? 1 : 0)
-            .offset(y: isRevealed ? 0 : (reduceMotion ? 0 : -6))
+            .offset(y: isRevealed ? 0 : (reduceMotion ? 0 : NotchTokens.Animation.revealOffset))
             .animation(
                 reduceMotion
                     ? .none

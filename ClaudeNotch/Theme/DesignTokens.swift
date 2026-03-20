@@ -63,20 +63,21 @@ enum NotchTokens {
         static let contentReveal = SwiftUI.Animation.easeOut(duration: 0.25)
         static let frameDuration: Double = 0.4
         static let dismissDelay: Duration = .milliseconds(300)
+        static let revealOffset: CGFloat = -6
 
         static let selectionFlashDuration: Double = 0.6
         static let selectionFadeIn: Double = 0.25
         static let selectionFadeOut: Double = 0.5
 
         static let workingPulseDuration: Double = 1.1
-        static let attentionPulseDuration: Double = 1.5
+        static let attentionPulseDuration: Double = 1.5  // Must be > workingPulseDuration for visual hierarchy
 
-        /// Returns a stagger delay for the given index, capping total stagger at 250ms.
+        /// Returns a stagger delay for the given index. The total spread across all items is distributed within 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {
-            guard total > 1 else { return 0 }
+            guard total > 1, index >= 0 else { return 0 }
             let maxStagger = 0.25
             let interval = maxStagger / Double(total)
-            return Double(index) * interval
+            return Double(min(index, total - 1)) * interval
         }
     }
 }

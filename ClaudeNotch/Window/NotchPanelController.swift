@@ -130,7 +130,7 @@ final class NotchPanelController {
             duration: NotchTokens.Animation.frameDuration,
             timingFunction: CAMediaTimingFunction(name: .easeInEaseOut),
             allowsImplicitAnimation: true
-        ) { _ in
+        ) {
             self.panel.animator().setFrame(frame, display: true)
         }
 

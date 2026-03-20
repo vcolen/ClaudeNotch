@@ -65,10 +65,17 @@ enum WindowHighlighter {
         activeWindow = window
 
         flashTask = Task { @MainActor in
+            defer {
+                window.orderOut(nil)
+                if activeWindow === window {
+                    activeWindow = nil
+                }
+            }
+
             await NSAnimationHelper.animate(
                 duration: NotchTokens.Animation.selectionFadeIn,
                 timingFunction: CAMediaTimingFunction(name: .easeOut)
-            ) { _ in
+            ) {
                 window.animator().alphaValue = 1
             }
 
@@ -78,12 +85,8 @@ enum WindowHighlighter {
             await NSAnimationHelper.animate(
                 duration: NotchTokens.Animation.selectionFadeOut,
                 timingFunction: CAMediaTimingFunction(name: .easeIn)
-            ) { _ in
+            ) {
                 window.animator().alphaValue = 0
-            }
-            window.orderOut(nil)
-            if activeWindow === window {
-                activeWindow = nil
             }
         }
     }
@@ -112,8 +115,8 @@ enum WindowHighlighter {
             return nil
         }
 
-        guard let boundsValue = info[kCGWindowBounds as String],
-              let cgBounds = CGRect(dictionaryRepresentation: boundsValue as! CFDictionary)
+        guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
+              let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary)
         else {
             NSLog("[WindowHighlighter] Unexpected window bounds format")
             return nil

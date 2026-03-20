@@ -47,9 +47,48 @@ struct AnimationTokenTests {
         #expect(NotchTokens.Animation.frameDuration < 2.0)
     }
 
-    @Test("Selection flash sequence has correct ordering: fadeIn < flash < fadeOut")
+    @Test("Selection flash sequence: fadeIn is shortest, fadeOut is intermediate, flash is longest")
     func selectionFlashOrdering() {
-        #expect(NotchTokens.Animation.selectionFadeIn < NotchTokens.Animation.selectionFlashDuration)
+        #expect(NotchTokens.Animation.selectionFadeIn < NotchTokens.Animation.selectionFadeOut)
+        #expect(NotchTokens.Animation.selectionFadeOut < NotchTokens.Animation.selectionFlashDuration)
+    }
+
+    @Test("staggerDelay returns 0 for total of 0")
+    func staggerDelayZeroTotal() {
+        #expect(NotchTokens.Animation.staggerDelay(index: 0, total: 0) == 0)
+    }
+
+    @Test("staggerDelay clamps index to total - 1")
+    func staggerDelayIndexExceedsTotal() {
+        let delay = NotchTokens.Animation.staggerDelay(index: 10, total: 5)
+        #expect(delay <= 0.25)
+    }
+
+    @Test("staggerDelay returns 0 for negative index")
+    func staggerDelayNegativeIndex() {
+        #expect(NotchTokens.Animation.staggerDelay(index: -1, total: 5) == 0)
+    }
+}
+
+@Suite("NSAnimationHelper")
+struct NSAnimationHelperTests {
+
+    @Test("Sync animate calls body exactly once")
+    @MainActor func syncAnimateCallsBody() {
+        var callCount = 0
+        NSAnimationHelper.animate(duration: 0) {
+            callCount += 1
+        }
+        #expect(callCount == 1)
+    }
+
+    @Test("Async animate calls body exactly once")
+    @MainActor func asyncAnimateCallsBody() async {
+        nonisolated(unsafe) var callCount = 0
+        await NSAnimationHelper.animate(duration: 0) {
+            callCount += 1
+        }
+        #expect(callCount == 1)
     }
 }
 
