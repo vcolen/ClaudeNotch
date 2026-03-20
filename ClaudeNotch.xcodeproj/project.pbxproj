@@ -57,6 +57,10 @@
 		A1B2C3D4000000CC /* NotificationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000032 /* NotificationItem.swift */; };
 		A1B2C3D4000000CA /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002D /* NotificationManager.swift */; };
 		A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002E /* NotificationBannerView.swift */; };
+		/* Animation Sources */
+		A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000033 /* AnimationModifiers.swift */; };
+		A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000034 /* NSAnimationHelper.swift */; };
+		A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000047 /* AnimationTokenTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +130,10 @@
 		A1B2C3D40000002D /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		A1B2C3D40000002E /* NotificationBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerView.swift; sourceTree = "<group>"; };
 		A1B2C3D400000046 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
+		/* Animation */
+		A1B2C3D400000033 /* AnimationModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationModifiers.swift; sourceTree = "<group>"; };
+		A1B2C3D400000034 /* NSAnimationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSAnimationHelper.swift; sourceTree = "<group>"; };
+		A1B2C3D400000047 /* AnimationTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTokenTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -187,6 +195,7 @@
 				A1B2C3D400000012 /* NotchPanel.swift */,
 				A1B2C3D400000013 /* NotchPanelController.swift */,
 				A1B2C3D400000014 /* ScreenObserver.swift */,
+				A1B2C3D400000034 /* NSAnimationHelper.swift */,
 			);
 			path = Window;
 			sourceTree = "<group>";
@@ -220,6 +229,7 @@
 				A1B2C3D40000001F /* ContextUsageBar.swift */,
 				A1B2C3D400000020 /* NotchShape.swift */,
 				A1B2C3D40000002E /* NotificationBannerView.swift */,
+				A1B2C3D400000033 /* AnimationModifiers.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -263,6 +273,7 @@
 				A1B2C3D400000044 /* GitBranchReaderTests.swift */,
 				A1B2C3D400000045 /* NotchPanelTests.swift */,
 				A1B2C3D400000046 /* NotificationManagerTests.swift */,
+				A1B2C3D400000047 /* AnimationTokenTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -407,6 +418,8 @@
 
 				A1B2C3D4000000CA /* NotificationManager.swift in Sources */,
 				A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */,
+				A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */,
+				A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,6 +434,7 @@
 				A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */,
 				A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */,
 				A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */,
+				A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
