@@ -65,23 +65,28 @@ enum WindowHighlighter {
         activeWindow = window
 
         flashTask = Task { @MainActor in
-            await NSAnimationContext.runAnimationGroup { context in
-                context.duration = NotchTokens.Animation.selectionFadeIn
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            defer {
+                window.orderOut(nil)
+                if activeWindow === window {
+                    activeWindow = nil
+                }
+            }
+
+            await NSAnimationHelper.animate(
+                duration: NotchTokens.Animation.selectionFadeIn,
+                timingFunction: CAMediaTimingFunction(name: .easeOut)
+            ) {
                 window.animator().alphaValue = 1
             }
 
             try? await Task.sleep(for: .milliseconds(Int(NotchTokens.Animation.selectionFlashDuration * 1000)))
             guard !Task.isCancelled else { return }
 
-            await NSAnimationContext.runAnimationGroup { context in
-                context.duration = NotchTokens.Animation.selectionFadeOut
-                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            await NSAnimationHelper.animate(
+                duration: NotchTokens.Animation.selectionFadeOut,
+                timingFunction: CAMediaTimingFunction(name: .easeIn)
+            ) {
                 window.animator().alphaValue = 0
-            }
-            window.orderOut(nil)
-            if activeWindow === window {
-                activeWindow = nil
             }
         }
     }
@@ -110,8 +115,8 @@ enum WindowHighlighter {
             return nil
         }
 
-        guard let boundsValue = info[kCGWindowBounds as String],
-              let cgBounds = CGRect(dictionaryRepresentation: boundsValue as! CFDictionary)
+        guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
+              let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary)
         else {
             NSLog("[WindowHighlighter] Unexpected window bounds format")
             return nil

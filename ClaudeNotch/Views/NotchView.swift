@@ -7,6 +7,7 @@ struct NotchView: View {
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dismissTask: Task<Void, Never>?
     @State private var notificationDebounceTask: Task<Void, Never>?
     @State private var attentionDismissTask: Task<Void, Never>?
@@ -105,7 +106,7 @@ struct NotchView: View {
                 }
             }
         }
-        .animation(NotchTokens.Animation.expandSpring, value: panelState.mode)
+        .animation(reduceMotion ? .none : NotchTokens.Animation.expandSpring, value: panelState.mode)
         .onChange(of: instanceManager.instances.count) { _, newCount in
             if panelState.mode == .collapsed {
                 panelState.contentHeight = CollapsedNotchView.contentHeight(
@@ -152,7 +153,7 @@ struct NotchView: View {
             onTap: { item in notificationManager.onTap?(item) },
             onDismiss: { notificationManager.dismiss() }
         )
-        .animation(NotchTokens.Notification.swapAnimation, value: notificationManager.currentItem?.id)
+        .animation(reduceMotion ? .none : NotchTokens.Notification.swapAnimation, value: notificationManager.currentItem?.id)
     }
 
     private var expandedContent: some View {

@@ -126,10 +126,11 @@ final class NotchPanelController {
 
         guard panel.frame != frame else { return }
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = NotchTokens.Animation.frameDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            context.allowsImplicitAnimation = true
+        NSAnimationHelper.animate(
+            duration: NotchTokens.Animation.frameDuration,
+            timingFunction: CAMediaTimingFunction(name: .easeInEaseOut),
+            allowsImplicitAnimation: true
+        ) {
             self.panel.animator().setFrame(frame, display: true)
         }
 
