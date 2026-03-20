@@ -7,6 +7,7 @@ struct ExpandedNotchView: View {
 
     @State private var isRevealed = false
     @State private var isButtonHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,8 +24,12 @@ struct ExpandedNotchView: View {
         .frame(maxWidth: .infinity)
         .onAppear {
             isRevealed = false
-            withAnimation(NotchTokens.Animation.contentReveal) {
+            if reduceMotion {
                 isRevealed = true
+            } else {
+                withAnimation(NotchTokens.Animation.contentReveal) {
+                    isRevealed = true
+                }
             }
         }
     }
@@ -79,13 +84,7 @@ struct ExpandedNotchView: View {
         ProjectGroupView(group: group) { selected in
             onSelectInstance?(selected)
         }
-        .opacity(isRevealed ? 1 : 0)
-        .offset(y: isRevealed ? 0 : -6)
-        .animation(
-            .easeOut(duration: 0.25)
-                .delay(NotchTokens.Animation.staggerDelay(index: index, total: total)),
-            value: isRevealed
-        )
+        .staggerReveal(isRevealed: isRevealed, index: index, total: total)
     }
 
     private var emptyState: some View {
@@ -143,8 +142,12 @@ struct ExpandedNotchView: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(NotchTokens.Animation.hoverQuick) {
+            if reduceMotion {
                 isButtonHovered = hovering
+            } else {
+                withAnimation(NotchTokens.Animation.hoverQuick) {
+                    isButtonHovered = hovering
+                }
             }
         }
     }
