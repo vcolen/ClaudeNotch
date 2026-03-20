@@ -65,18 +65,20 @@ enum WindowHighlighter {
         activeWindow = window
 
         flashTask = Task { @MainActor in
-            await NSAnimationContext.runAnimationGroup { context in
-                context.duration = NotchTokens.Animation.selectionFadeIn
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            await NSAnimationHelper.animate(
+                duration: NotchTokens.Animation.selectionFadeIn,
+                timingFunction: CAMediaTimingFunction(name: .easeOut)
+            ) { _ in
                 window.animator().alphaValue = 1
             }
 
             try? await Task.sleep(for: .milliseconds(Int(NotchTokens.Animation.selectionFlashDuration * 1000)))
             guard !Task.isCancelled else { return }
 
-            await NSAnimationContext.runAnimationGroup { context in
-                context.duration = NotchTokens.Animation.selectionFadeOut
-                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            await NSAnimationHelper.animate(
+                duration: NotchTokens.Animation.selectionFadeOut,
+                timingFunction: CAMediaTimingFunction(name: .easeIn)
+            ) { _ in
                 window.animator().alphaValue = 0
             }
             window.orderOut(nil)
