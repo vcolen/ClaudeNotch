@@ -5,6 +5,7 @@ struct InstanceCardView: View {
     var onTap: ((ClaudeInstance) -> Void)?
 
     @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -99,8 +100,12 @@ struct InstanceCardView: View {
         }
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(NotchTokens.Animation.hoverQuick) {
+            if reduceMotion {
                 isHovered = hovering
+            } else {
+                withAnimation(NotchTokens.Animation.hoverQuick) {
+                    isHovered = hovering
+                }
             }
         }
         .onTapGesture {
