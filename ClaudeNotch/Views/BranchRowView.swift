@@ -5,8 +5,6 @@ struct BranchRowView: View {
     let isLast: Bool
     var onTap: ((ClaudeInstance) -> Void)?
 
-    @State private var isHovered = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
@@ -46,16 +44,11 @@ struct BranchRowView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, NotchTokens.BranchRow.verticalPadding)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(isHovered ? Color.white.opacity(0.06) : .clear)
+        .hoverHighlight(
+            cornerRadius: 6,
+            hoverColor: Color.white.opacity(0.06),
+            idleColor: .clear
         )
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(NotchTokens.Animation.hoverQuick) {
-                isHovered = hovering
-            }
-        }
         .onTapGesture {
             onTap?(instance)
         }
