@@ -65,6 +65,9 @@
 		A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000047 /* AnimationTokenTests.swift */; };
 		A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000048 /* WaterDropGeometryTests.swift */; };
 		A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000049 /* WaterDropAnimationTests.swift */; };
+		/* ProcessScanner Sources */
+		A1B2C3D4000000CF /* ProcessScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000035 /* ProcessScanner.swift */; };
+		A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000004A /* ProcessScannerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +145,9 @@
 		A1B2C3D400000047 /* AnimationTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTokenTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000048 /* WaterDropGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropGeometryTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000049 /* WaterDropAnimationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropAnimationTests.swift; sourceTree = "<group>"; };
+		/* ProcessScanner */
+		A1B2C3D400000035 /* ProcessScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScanner.swift; sourceTree = "<group>"; };
+		A1B2C3D40000004A /* ProcessScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScannerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -220,6 +226,7 @@
 				A1B2C3D400000019 /* PanelState.swift */,
 				A1B2C3D400000032 /* NotificationItem.swift */,
 				A1B2C3D40000002D /* NotificationManager.swift */,
+				A1B2C3D400000035 /* ProcessScanner.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -286,6 +293,7 @@
 				A1B2C3D400000047 /* AnimationTokenTests.swift */,
 				A1B2C3D400000048 /* WaterDropGeometryTests.swift */,
 				A1B2C3D400000049 /* WaterDropAnimationTests.swift */,
+				A1B2C3D40000004A /* ProcessScannerTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -434,6 +442,7 @@
 				A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */,
 				A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */,
 				A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */,
+				A1B2C3D4000000CF /* ProcessScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,6 +460,7 @@
 				A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */,
 				A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */,
 				A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */,
+				A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
