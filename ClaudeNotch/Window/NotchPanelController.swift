@@ -82,9 +82,11 @@ final class NotchPanelController {
                 guard let instanceManager, let self else { return }
                 instanceManager.clearAttention(for: instance.id)
 
-                // Capture notch position NOW (before panel might collapse)
+                // Capture drop origin from the clicked card's position
+                let mouseX = NSEvent.mouseLocation.x
+                let clampedX = min(max(mouseX, self.panel.frame.minX), self.panel.frame.maxX)
                 let notchCenter = CGPoint(
-                    x: self.panel.frame.midX,
+                    x: clampedX,
                     y: self.panel.frame.minY
                 )
                 let color = WaterDropAnimator.nsColor(for: instance)
