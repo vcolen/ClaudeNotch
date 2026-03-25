@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Water Drop Split Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+  .subtitle { font-size: 14px; color: #888; margin-bottom: 40px; line-height: 1.5; text-align: center; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 1200px;
+    width: 100%;
+  }
+  .card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: #fff; }
+  .card .desc {
+    font-size: 12px; color: #888; margin-bottom: 16px;
+    text-align: center; line-height: 1.4; max-width: 380px;
+  }
+  canvas { border-radius: 8px; cursor: pointer; }
+  .hint { font-size: 11px; color: #555; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Water Drop Split</h1>
+<p class="subtitle">Dot launches from notch, lands top-center, splits into two lights that race down each side and merge at the bottom. Click to replay.</p>
+
+<div class="grid">
+  <div class="card">
+    <h2>Running</h2>
+    <p class="desc">Terminal bottom-right</p>
+    <canvas id="canvasA" width="520" height="400"></canvas>
+    <p class="hint"><span style="color:#4dd966">Running (green)</span> — click to replay</p>
+  </div>
+  <div class="card">
+    <h2>Needs Input</h2>
+    <p class="desc">Terminal bottom-left</p>
+    <canvas id="canvasB" width="520" height="400"></canvas>
+    <p class="hint"><span style="color:#ff9926">Needs Input (orange)</span> — click to replay</p>
+  </div>
+  <div class="card">
+    <h2>Finished</h2>
+    <p class="desc">Terminal center</p>
+    <canvas id="canvasC" width="520" height="400"></canvas>
+    <p class="hint"><span style="color:#66b3ff">Finished (blue)</span> — click to replay</p>
+  </div>
+  <div class="card">
+    <h2>Idle</h2>
+    <p class="desc">Terminal top-left</p>
+    <canvas id="canvasD" width="520" height="400"></canvas>
+    <p class="hint"><span style="color:#a0a0a0">Idle (gray)</span> — click to replay</p>
+  </div>
+</div>
+
+<script>
+const BR = 10;
+const DOT_R = 5;
+
+const STATUS = {
+  running:    [77, 217, 102],
+  needsInput: [255, 153, 38],
+  finished:   [102, 179, 255],
+  idle:       [160, 160, 160],
+};
+
+const layouts = {
+  A: { term: { x: 250, y: 200, w: 240, h: 165 }, color: STATUS.running },
+  B: { term: { x: 30,  y: 210, w: 235, h: 155 }, color: STATUS.needsInput },
+  C: { term: { x: 135, y: 170, w: 250, h: 170 }, color: STATUS.finished },
+  D: { term: { x: 25,  y: 85,  w: 230, h: 155 }, color: STATUS.idle },
+};
+
+function notchPos(c) { return { x: c.width / 2, y: 14 }; }
+
+function perim(r) {
+  return 2 * (r.w - 2*BR) + 2 * (r.h - 2*BR) + 2 * Math.PI * BR;
+}
+
+// t=0 → top-center, CW
+function ptOn(rect, t) {
+  const R=BR, {x,y,w,h}=rect, P=perim(rect);
+  let d=((t%1)+1)%1*P;
+  const tr=(w/2)-R, arc=Math.PI*R/2, ri=h-2*R, bo=w-2*R, le=h-2*R;
+  const S=[tr,arc,ri,arc,bo,arc,le,arc,tr];
+  let s=0;
+  while(s<S.length&&d>S[s]){d-=S[s];s++;}
+  if(s>=S.length){s=S.length-1;d=S[s];}
+  const f=S[s]>0?d/S[s]:0;
+  switch(s){
+    case 0:return{x:x+w/2+f*tr,y};
+    case 1:{const a=-Math.PI/2+f*Math.PI/2;return{x:x+w-R+Math.cos(a)*R,y:y+R+Math.sin(a)*R};}
+    case 2:return{x:x+w,y:y+R+f*ri};
+    case 3:{const a=f*Math.PI/2;return{x:x+w-R+Math.cos(a)*R,y:y+h-R+Math.sin(a)*R};}
+    case 4:return{x:x+w-R-f*bo,y:y+h};
+    case 5:{const a=Math.PI/2+f*Math.PI/2;return{x:x+R+Math.cos(a)*R,y:y+h-R+Math.sin(a)*R};}
+    case 6:return{x,y:y+h-R-f*le};
+    case 7:{const a=Math.PI+f*Math.PI/2;return{x:x+R+Math.cos(a)*R,y:y+R+Math.sin(a)*R};}
+    case 8:return{x:x+R+f*tr,y};
+    default:return{x:x+w/2,y};
+  }
+}
+
+// Projectile: sideways launch with gravity
+function makeProjectile(from, to) {
+  const dx=to.x-from.x, dy=to.y-from.y, dist=Math.hypot(dx,dy);
+  const g=600+dist*1.5, vx=dx, vy=dy-0.5*g;
+  return t=>({x:from.x+vx*t, y:from.y+vy*t+0.5*g*t*t});
+}
+
+// Return arc
+function makeReturn(from, to) {
+  const dx=to.x-from.x, dy=to.y-from.y, dist=Math.hypot(dx,dy);
+  const g=500+dist*1.2, vx=dx, vy=dy-0.5*g;
+  return t=>({x:from.x+vx*t, y:from.y+vy*t+0.5*g*t*t});
+}
+
+function drawScene(ctx, c, rect, C) {
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle='#0f0f23'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle='#1e1e3a'; ctx.fillRect(0,0,c.width,24);
+  const n=notchPos(c);
+  ctx.fillStyle='#2a2a4a';
+  ctx.beginPath();ctx.roundRect(n.x-40,0,80,22,[0,0,8,8]);ctx.fill();
+  ctx.fillStyle=`rgb(${C})`;ctx.beginPath();ctx.arc(n.x,11,3,0,Math.PI*2);ctx.fill();
+  const r=rect;
+  ctx.fillStyle='#1c1c2e';ctx.beginPath();ctx.roundRect(r.x,r.y,r.w,r.h,BR);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(r.x,r.y,r.w,r.h,BR);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(r.x+1,r.y+1,r.w-2,22);
+  [['#ff5f56',0],['#ffbd2e',1],['#27c93f',2]].forEach(([cl,i])=>{
+    ctx.fillStyle=cl;ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(r.x+16+i*16,r.y+12,4,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  });
+  ctx.font='10px monospace';ctx.fillStyle='rgba(255,255,255,0.12)';
+  ['~/project $ claude','> Analyzing...','> Ready','█'].forEach((l,i)=>ctx.fillText(l,r.x+12,r.y+42+i*16));
+}
+
+function dot(ctx,x,y,r,a,C,glow){
+  if(glow){
+    const g=ctx.createRadialGradient(x,y,0,x,y,r*5);
+    g.addColorStop(0,`rgba(${C},${a*0.5})`);g.addColorStop(1,`rgba(${C},0)`);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle=`rgba(${C},${a})`;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+}
+
+function drawTrail(ctx,trail,C,maxAlpha){
+  for(let i=0;i<trail.length;i++){
+    const age=1-i/trail.length;
+    ctx.fillStyle=`rgba(${C},${age*maxAlpha})`;
+    ctx.beginPath();ctx.arc(trail[i].x,trail[i].y,DOT_R*0.4*age,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function makeBurst(cx,cy,n,sp){
+  const out=[];
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=0.5+Math.random()*sp;
+    out.push({x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1});
+  }
+  return out;
+}
+function updBurst(b,dec){b.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.015;p.life-=dec;});return b.filter(p=>p.life>0);}
+function drawBurst(ctx,b,C){b.forEach(p=>{ctx.fillStyle=`rgba(${C},${p.life})`;ctx.beginPath();ctx.arc(p.x,p.y,2.5*p.life,0,Math.PI*2);ctx.fill();});}
+
+function easeInOut(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+
+// ============ MAIN ANIMATION ============
+function animate(canvas, key) {
+  const ctx = canvas.getContext('2d');
+  const L = layouts[key];
+  const term = L.term, C = L.color, n = notchPos(canvas);
+
+  // Landing point: top-center of terminal (t=0)
+  const landPt = ptOn(term, 0); // top-center
+  const proj = makeProjectile(n, landPt);
+
+  // Bottom-center where the two halves meet (t=0.5)
+  const meetPt = ptOn(term, 0.5);
+
+  const flightDur = 650;
+  const splitPause = 80;  // squish moment
+  const raceDur = 600;    // both halves race to bottom
+  const meetPause = 120;  // merge burst
+  const returnDur = 500;
+
+  let start = null;
+  let fTrail = [];           // flight trail
+  let rTrail = [];           // return trail
+  let cwTrail = [], ccwTrail = []; // race trails
+  let burst = [];
+  let meetBurst = [];
+  let retProj = null;
+
+  const GHOSTS = 5;
+
+  function frame(ts) {
+    if (!start) start = ts;
+    const el = ts - start;
+    const totalDur = flightDur + splitPause + raceDur + meetPause + returnDur;
+    drawScene(ctx, canvas, term, C);
+
+    // === PHASE 1: Flight from notch to top-center ===
+    if (el < flightDur) {
+      const p = el / flightDur;
+      const pos = proj(p);
+      const next = proj(Math.min(1, p + 0.015));
+      const angle = Math.atan2(next.y-pos.y, next.x-pos.x);
+      const speed = Math.hypot(next.x-pos.x, next.y-pos.y);
+      const stretch = 1 + Math.min(speed*0.05, 0.6);
+      ctx.save(); ctx.translate(pos.x,pos.y); ctx.rotate(angle);
+      ctx.scale(stretch,1/stretch); dot(ctx,0,0,DOT_R*1.1,1,C,true);
+      ctx.restore();
+      fTrail.unshift({x:pos.x,y:pos.y});
+      if(fTrail.length>18) fTrail.pop();
+      drawTrail(ctx,fTrail,C,0.45);
+    }
+
+    // === PHASE 2: Impact squish (water drop hitting surface) ===
+    else if (el < flightDur + splitPause) {
+      const sp = (el - flightDur) / splitPause;
+      if (burst.length === 0) burst = makeBurst(landPt.x, landPt.y, 8, 1.5);
+      // Squished wide, then splitting apart
+      const squishW = 1 + sp * 1.2;
+      const squishH = Math.max(0.3, 1 - sp * 0.7);
+      ctx.save();
+      ctx.translate(landPt.x, landPt.y);
+      ctx.scale(squishW, squishH);
+      dot(ctx, 0, 0, DOT_R, 1, C, true);
+      ctx.restore();
+    }
+
+    // === PHASE 3: Two liquid streams flow — CW (right) and CCW (left) ===
+    else if (el < flightDur + splitPause + raceDur) {
+      const rp = (el - flightDur - splitPause) / raceDur;
+      const eased = easeInOut(rp);
+
+      const cwFront = eased * 0.5;
+      const ccwFront = eased * 0.5;
+
+      // Get inward normal at a border point
+      function getNormal(t) {
+        const p0 = ptOn(term, t);
+        const p1 = ptOn(term, ((t+0.003)%1+1)%1);
+        const dx=p1.x-p0.x, dy=p1.y-p0.y;
+        const len=Math.hypot(dx,dy)||1;
+        return { x: -dy/len, y: dx/len };
+      }
+
+      // Draw one liquid stream as a filled strip with thickness variation
+      function drawStream(front, direction) {
+        const SAMPLES = 60;
+        const STREAM_LEN = 0.10; // how much border it covers behind the front
+        const BASE_THICK = 6;    // base thickness in px
+
+        const outer = []; // border edge
+        const inner = []; // inward edge (offset by thickness)
+
+        for (let i = 0; i <= SAMPLES; i++) {
+          const frac = i / SAMPLES; // 0=front, 1=tail
+          const bT = front - frac * STREAM_LEN;
+          if (bT < -0.01) continue;
+          const clampedT = Math.max(0, bT);
+
+          const actualT = direction === 1 ? clampedT : (((-clampedT)%1)+1)%1;
+          const p = ptOn(term, actualT);
+          const n = getNormal(actualT);
+          if (direction === -1) { n.x = -n.x; n.y = -n.y; }
+
+          // Thickness: bulges at front, thins at tail, slight wobble
+          const env = Math.pow(1 - frac, 0.8);
+          const wobble = 1 + Math.sin(frac * 8 + rp * 12) * 0.15;
+          const thick = BASE_THICK * env * wobble;
+
+          // Front tapers to a point
+          const frontTaper = frac < 0.05 ? frac / 0.05 : 1;
+          const finalThick = thick * frontTaper;
+
+          outer.push({ x: p.x, y: p.y });
+          inner.push({ x: p.x + n.x * finalThick, y: p.y + n.y * finalThick });
+        }
+
+        if (outer.length < 2) return;
+
+        // Fill the liquid body (translucent)
+        ctx.beginPath();
+        ctx.moveTo(outer[0].x, outer[0].y);
+        for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i].x, outer[i].y);
+        for (let i = inner.length - 1; i >= 0; i--) ctx.lineTo(inner[i].x, inner[i].y);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${C},0.3)`;
+        ctx.fill();
+
+        // Bright meniscus edge (surface tension highlight)
+        ctx.beginPath();
+        ctx.moveTo(outer[0].x, outer[0].y);
+        for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i].x, outer[i].y);
+        ctx.strokeStyle = `rgba(${C},0.7)`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Inner edge highlight (fainter)
+        ctx.beginPath();
+        ctx.moveTo(inner[0].x, inner[0].y);
+        for (let i = 1; i < inner.length; i++) ctx.lineTo(inner[i].x, inner[i].y);
+        ctx.strokeStyle = `rgba(${C},0.25)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Specular highlight: bright spot near the front
+        if (outer.length > 3) {
+          const sp = outer[2];
+          const spI = inner[2];
+          const hx = (sp.x + spI.x) / 2, hy = (sp.y + spI.y) / 2;
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.beginPath(); ctx.arc(hx, hy, 2, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Trailing satellite droplets
+        for (let d = 0; d < 3; d++) {
+          const dropFrac = 0.7 + d * 0.1;
+          if (front - dropFrac * STREAM_LEN < 0) continue;
+          const dropT = direction === 1
+            ? (front - dropFrac * STREAM_LEN)
+            : (((-(front - dropFrac * STREAM_LEN))%1)+1)%1;
+          const dp = ptOn(term, dropT);
+          const dn = getNormal(dropT);
+          if (direction === -1) { dn.x = -dn.x; dn.y = -dn.y; }
+          const dropSize = 1.5 * (1 - dropFrac);
+          const ox = dp.x + dn.x * (BASE_THICK * 0.3);
+          const oy = dp.y + dn.y * (BASE_THICK * 0.3);
+          ctx.fillStyle = `rgba(${C},${0.4 * (1-dropFrac)})`;
+          ctx.beginPath(); ctx.arc(ox, oy, dropSize, 0, Math.PI*2); ctx.fill();
+        }
+      }
+
+      drawStream(cwFront, 1);
+      drawStream(ccwFront, -1);
+
+      // Glow at the leading edge
+      const cwPt = ptOn(term, cwFront);
+      const ccwPt = ptOn(term, ((-ccwFront)%1+1)%1);
+      const g1 = ctx.createRadialGradient(cwPt.x,cwPt.y,0,cwPt.x,cwPt.y,8);
+      g1.addColorStop(0,`rgba(${C},0.5)`);g1.addColorStop(1,`rgba(${C},0)`);
+      ctx.fillStyle=g1;ctx.beginPath();ctx.arc(cwPt.x,cwPt.y,8,0,Math.PI*2);ctx.fill();
+      const g2 = ctx.createRadialGradient(ccwPt.x,ccwPt.y,0,ccwPt.x,ccwPt.y,8);
+      g2.addColorStop(0,`rgba(${C},0.5)`);g2.addColorStop(1,`rgba(${C},0)`);
+      ctx.fillStyle=g2;ctx.beginPath();ctx.arc(ccwPt.x,ccwPt.y,8,0,Math.PI*2);ctx.fill();
+
+      if (rp > 0.95 && meetBurst.length === 0) {
+        meetBurst = makeBurst(meetPt.x, meetPt.y, 14, 2.5);
+      }
+    }
+
+    // === PHASE 4: Meet at bottom — merge burst ===
+    else if (el < flightDur + splitPause + raceDur + meetPause) {
+      if (meetBurst.length === 0) meetBurst = makeBurst(meetPt.x, meetPt.y, 14, 2.5);
+      const mp = (el - flightDur - splitPause - raceDur) / meetPause;
+      // Merged dot pulses at bottom
+      const pulse = 1 + Math.sin(mp * Math.PI * 2) * 0.3;
+      dot(ctx, meetPt.x, meetPt.y, DOT_R * pulse, 1, C, true);
+    }
+
+    // === PHASE 5: Return to notch ===
+    else if (el < totalDur) {
+      if (!retProj) retProj = makeReturn(meetPt, n);
+      const rp = (el - flightDur - splitPause - raceDur - meetPause) / returnDur;
+      const pos = retProj(rp);
+      const next = retProj(Math.min(1, rp + 0.015));
+      const angle = Math.atan2(next.y-pos.y, next.x-pos.x);
+      const speed = Math.hypot(next.x-pos.x, next.y-pos.y);
+      const stretch = 1 + Math.min(speed*0.05, 0.6);
+      const size = DOT_R * (1 - rp * 0.4);
+      const alpha = 1 - rp * 0.3;
+      ctx.save(); ctx.translate(pos.x,pos.y); ctx.rotate(angle);
+      ctx.scale(stretch,1/stretch); dot(ctx,0,0,size,alpha,C,true);
+      ctx.restore();
+      rTrail.unshift({x:pos.x,y:pos.y});
+      if(rTrail.length>12) rTrail.pop();
+      drawTrail(ctx,rTrail,C,0.35*(1-rp*0.5));
+    }
+
+    // Bursts
+    burst = updBurst(burst, 0.04); drawBurst(ctx, burst, C);
+    meetBurst = updBurst(meetBurst, 0.03); drawBurst(ctx, meetBurst, C);
+
+    if (el < totalDur) requestAnimationFrame(frame);
+  }
+
+  start=null; fTrail=[]; rTrail=[]; cwTrail=[]; ccwTrail=[];
+  burst=[]; meetBurst=[]; retProj=null;
+  requestAnimationFrame(frame);
+}
+
+// ============ INIT ============
+function init(){
+  const cs = {
+    A: document.getElementById('canvasA'),
+    B: document.getElementById('canvasB'),
+    C: document.getElementById('canvasC'),
+    D: document.getElementById('canvasD'),
+  };
+  Object.entries(cs).forEach(([k,c]) => drawScene(c.getContext('2d'), c, layouts[k].term, layouts[k].color));
+  setTimeout(() => animate(cs.A, 'A'), 300);
+  setTimeout(() => animate(cs.B, 'B'), 500);
+  setTimeout(() => animate(cs.C, 'C'), 700);
+  setTimeout(() => animate(cs.D, 'D'), 900);
+  cs.A.addEventListener('click', () => animate(cs.A, 'A'));
+  cs.B.addEventListener('click', () => animate(cs.B, 'B'));
+  cs.C.addEventListener('click', () => animate(cs.C, 'C'));
+  cs.D.addEventListener('click', () => animate(cs.D, 'D'));
+}
+init();
+</script>
+</body>
+</html>
