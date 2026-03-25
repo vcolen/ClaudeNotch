@@ -93,12 +93,12 @@ enum WindowHighlighter {
 
     // MARK: - Window Lookup
 
-    private struct ITermWindowSnapshot {
+    struct ITermWindowSnapshot {
         let frame: CGRect
         let windowNumber: Int
     }
 
-    private static func frontmostiTermWindow() -> ITermWindowSnapshot? {
+    static func frontmostiTermWindow() -> ITermWindowSnapshot? {
         // TODO: CGWindowListCopyWindowInfo deprecated in macOS 14.2 — no direct replacement available yet
         guard let windowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
@@ -133,6 +133,72 @@ enum WindowHighlighter {
         }
 
         // Convert from CGWindowList coordinates (top-left origin) to NSWindow coordinates (bottom-left origin)
+        let frame = CGRect(
+            x: cgBounds.origin.x,
+            y: primaryHeight - cgBounds.maxY,
+            width: cgBounds.width,
+            height: cgBounds.height
+        )
+        return ITermWindowSnapshot(frame: frame, windowNumber: windowNumber)
+    }
+
+    static func iTermWindow(forTTY tty: String?) -> ITermWindowSnapshot? {
+        guard let tty else { return frontmostiTermWindow() }
+
+        // TODO: CGWindowListCopyWindowInfo deprecated in macOS 14.2 — no direct replacement available yet
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return nil }
+
+        let itermWindows = windowList.filter {
+            ($0[kCGWindowOwnerName as String] as? String) == "iTerm2"
+        }
+
+        guard !itermWindows.isEmpty else { return nil }
+
+        // If only one iTerm window, return it directly
+        if itermWindows.count == 1, let info = itermWindows.first {
+            return snapshot(from: info)
+        }
+
+        // Multiple windows: use AppleScript to find which contains the TTY
+        let source = """
+        tell application "iTerm"
+          repeat with w in windows
+            repeat with t in tabs of w
+              repeat with s in sessions of t
+                if tty of s is "\(tty)" then
+                  return id of w
+                end if
+              end repeat
+            end repeat
+          end repeat
+        end tell
+        """
+        if let script = NSAppleScript(source: source) {
+            var error: NSDictionary?
+            let result = script.executeAndReturnError(&error)
+            if error == nil {
+                let windowID = result.int32Value
+                if let info = itermWindows.first(where: {
+                    ($0[kCGWindowNumber as String] as? Int32) == windowID
+                }) {
+                    return snapshot(from: info)
+                }
+            }
+        }
+
+        return frontmostiTermWindow()
+    }
+
+    private static func snapshot(from info: [String: Any]) -> ITermWindowSnapshot? {
+        guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
+              let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
+              let primaryHeight = NSScreen.screens.first?.frame.height,
+              let windowNumber = info[kCGWindowNumber as String] as? Int
+        else { return nil }
+
         let frame = CGRect(
             x: cgBounds.origin.x,
             y: primaryHeight - cgBounds.maxY,

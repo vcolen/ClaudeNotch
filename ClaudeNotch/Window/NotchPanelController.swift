@@ -78,14 +78,31 @@ final class NotchPanelController {
                     ITermIntegration.launchNewInstance(in: url.path)
                 }
             },
-            onSelectInstance: { [weak instanceManager] instance in
-                guard let instanceManager else { return }
+            onSelectInstance: { [weak instanceManager, weak self] instance in
+                guard let instanceManager, let self else { return }
                 instanceManager.clearAttention(for: instance.id)
+
+                // Capture notch position NOW (before panel might collapse)
+                let notchCenter = CGPoint(
+                    x: self.panel.frame.midX,
+                    y: self.panel.frame.minY
+                )
+                let color = WaterDropAnimator.nsColor(for: instance)
+
                 Task { @MainActor in
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
-                    // Brief delay for iTerm's window to come to front; we need the window number to position the glow behind it
                     try? await Task.sleep(for: .milliseconds(150))
-                    WindowHighlighter.flashiTermWindow()
+
+                    guard let iterm = WindowHighlighter.iTermWindow(forTTY: instance.tty)
+                        ?? WindowHighlighter.frontmostiTermWindow() else { return }
+
+                    WaterDropAnimator.animate(
+                        from: notchCenter,
+                        to: iterm.frame,
+                        terminalWindowNumber: iterm.windowNumber,
+                        color: color,
+                        on: self.screen
+                    )
                 }
             }
         )

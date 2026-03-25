@@ -72,6 +72,17 @@ enum NotchTokens {
         static let workingPulseDuration: Double = 1.1
         static let attentionPulseDuration: Double = 1.5  // Must be > workingPulseDuration for visual hierarchy
 
+        // Water drop selection animation
+        static let waterDropFlightDur: Double = 0.65
+        static let waterDropImpactDur: Double = 0.08
+        static let waterDropRaceDur: Double = 0.60
+        static let waterDropMergeDur: Double = 0.12
+        static let waterDropReturnDur: Double = 0.50
+        static let waterDropStreamThickness: CGFloat = 6
+        static let waterDropStreamLength: CGFloat = 0.10
+        static let waterDropDotRadius: CGFloat = 5
+        static let terminalCornerRadius: CGFloat = 10
+
         /// Returns a stagger delay for the given index. The total spread across all items is distributed within 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {
             guard total > 1, index >= 0 else { return 0 }
