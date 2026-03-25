@@ -82,17 +82,8 @@ final class NotchPanelController {
                 guard let instanceManager, let self else { return }
                 instanceManager.clearAttention(for: instance.id)
 
-                // Compute the dot's x position in the collapsed notch layout
-                let dotX = Self.dotScreenX(
-                    for: instance,
-                    in: instanceManager,
-                    panelFrame: self.panel.frame,
-                    notchWidth: self.panelState.notchWidth
-                )
-                let notchCenter = CGPoint(
-                    x: dotX,
-                    y: self.panel.frame.minY
-                )
+                // Launch from where the user clicked (the card)
+                let notchCenter = NSEvent.mouseLocation
                 let color = WaterDropAnimator.nsColor(for: instance)
 
                 Task { @MainActor in
@@ -227,34 +218,6 @@ final class NotchPanelController {
         observationTask?.cancel()
         observationTask = nil
         panel.orderOut(nil)
-    }
-
-    /// Computes the screen-space x coordinate of an instance's dot in the collapsed notch layout.
-    private static func dotScreenX(
-        for instance: ClaudeInstance,
-        in manager: InstanceManager,
-        panelFrame: CGRect,
-        notchWidth: CGFloat
-    ) -> CGFloat {
-        let sorted = manager.sortedInstances
-        guard let dotIndex = sorted.firstIndex(where: { $0.id == instance.id }) else {
-            return panelFrame.midX
-        }
-
-        let perRow = CollapsedNotchView.dotsPerRow(maxWidth: notchWidth)
-        let row = dotIndex / perRow
-        let col = dotIndex % perRow
-        let dotsInRow = min(perRow, sorted.count - row * perRow)
-
-        let dotSize = CollapsedNotchView.dotSize
-        let dotSpacing = CollapsedNotchView.dotSpacing
-        let rowWidth = CGFloat(dotsInRow) * dotSize + CGFloat(dotsInRow - 1) * dotSpacing
-
-        // Dots are centered in the panel
-        let rowStartX = panelFrame.midX - rowWidth / 2
-        let dotCenterX = rowStartX + CGFloat(col) * (dotSize + dotSpacing) + dotSize / 2
-
-        return dotCenterX
     }
 
     private struct ScreenGeometry {
