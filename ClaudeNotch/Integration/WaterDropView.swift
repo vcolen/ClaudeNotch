@@ -85,6 +85,19 @@ final class WaterDropView: NSView {
             drawReturn(ctx, progress: (elapsed - flight - impact - race - merge) / returnDur, meetPt: meetPt)
         }
 
+        // Terminal border glow: flash at impact, fade through race
+        let glowStart = flight
+        let glowEnd = flight + impact + race * 0.5
+        if elapsed >= glowStart && elapsed < glowEnd {
+            let glowElapsed = elapsed - glowStart
+            let glowDuration = glowEnd - glowStart
+            // Quick flash in (first 15%), then fade out
+            let fadeIn = min(1, glowElapsed / (glowDuration * 0.15))
+            let fadeOut = 1 - max(0, (glowElapsed - glowDuration * 0.15) / (glowDuration * 0.85))
+            let glowAlpha = fadeIn * fadeOut * 0.5
+            drawTerminalGlow(ctx, alpha: glowAlpha)
+        }
+
         // Draw burst particles across all phases
         updateAndDrawBursts(ctx)
     }
@@ -310,6 +323,37 @@ final class WaterDropView: NSView {
         returnTrail.insert(pos, at: 0)
         if returnTrail.count > 12 { returnTrail.removeLast() }
         drawTrail(ctx, trail: returnTrail, maxAlpha: 0.35 * (1 - rp * 0.5))
+    }
+
+    // MARK: - Terminal Glow
+
+    private func drawTerminalGlow(_ ctx: CGContext, alpha: CGFloat) {
+        let rect = geometry.rect
+        let cr = geometry.cornerRadius
+        let spread: CGFloat = 12 * scale
+
+        let glowRect = rect.insetBy(dx: -spread, dy: -spread)
+        let path = CGPath(roundedRect: glowRect, cornerWidth: cr + spread, cornerHeight: cr + spread, transform: nil)
+        let innerPath = CGPath(roundedRect: rect, cornerWidth: cr, cornerHeight: cr, transform: nil)
+
+        // Outer glow (shadow-like)
+        ctx.saveGState()
+        ctx.addPath(path)
+        ctx.addPath(innerPath)
+        ctx.clip(using: .evenOdd)
+        ctx.setShadow(offset: .zero, blur: spread, color: colorWith(alpha: alpha))
+        ctx.setFillColor(colorWith(alpha: alpha))
+        ctx.addPath(innerPath)
+        ctx.fillPath()
+        ctx.restoreGState()
+
+        // Border stroke
+        ctx.saveGState()
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(colorWith(alpha: alpha * 0.8))
+        ctx.setLineWidth(1.5)
+        ctx.strokePath()
+        ctx.restoreGState()
     }
 
     // MARK: - Drawing Helpers
