@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os.log
 
 @MainActor
 final class NotchPanelController {
@@ -11,6 +12,9 @@ final class NotchPanelController {
 
     private let expandedWidth: CGFloat = 340
     private var observationTask: Task<Void, Never>?
+    private var selectionAnimationTask: Task<Void, Never>?
+
+    private static let log = Logger(subsystem: "com.claudenotch", category: "NotchPanelController")
 
     init(screen: NSScreen, instanceManager: InstanceManager) {
         self.screen = screen
@@ -78,14 +82,42 @@ final class NotchPanelController {
                     ITermIntegration.launchNewInstance(in: url.path)
                 }
             },
-            onSelectInstance: { [weak instanceManager] instance in
-                guard let instanceManager else { return }
+            onSelectInstance: { [weak instanceManager, weak self] instance in
+                guard let instanceManager, let self else { return }
                 instanceManager.clearAttention(for: instance.id)
-                Task { @MainActor in
+
+                // Capture mouse position at click time (card position on screen)
+                let clickOrigin = NSEvent.mouseLocation
+                let color = instance.displayNSColor
+                let screen = self.screen
+
+                // Cancel any previous selection animation to avoid racing animations
+                self.selectionAnimationTask?.cancel()
+                self.selectionAnimationTask = Task { @MainActor in
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
-                    // Brief delay for iTerm's window to come to front; we need the window number to position the glow behind it
-                    try? await Task.sleep(for: .milliseconds(150))
-                    WindowHighlighter.flashiTermWindow()
+                    do {
+                        try await Task.sleep(for: .milliseconds(150))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        Self.log.error("Unexpected error during selection animation sleep: \(error, privacy: .public)")
+                        return
+                    }
+                    guard !Task.isCancelled else { return }
+
+                    guard let iterm = WindowHighlighter.iTermWindow(forTTY: instance.tty)
+                        ?? WindowHighlighter.frontmostiTermWindow() else {
+                        Self.log.error("Window lookup failed for TTY \"\(instance.tty ?? "nil", privacy: .private)\" — falling back to flash")
+                        WindowHighlighter.flashiTermWindow()
+                        return
+                    }
+
+                    WaterDropAnimator.animate(
+                        from: clickOrigin,
+                        to: iterm.frame,
+                        color: color,
+                        on: screen
+                    )
                 }
             }
         )

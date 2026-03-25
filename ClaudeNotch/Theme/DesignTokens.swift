@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Design Tokens
@@ -72,6 +73,38 @@ enum NotchTokens {
         static let workingPulseDuration: Double = 1.1
         static let attentionPulseDuration: Double = 1.5  // Must be > workingPulseDuration for visual hierarchy
 
+        // Water drop selection animation
+        static let waterDropFlightDur: Double = 0.65
+        static let waterDropImpactDur: Double = 0.08
+        static let waterDropRaceDur: Double = 0.60
+        static let waterDropMergeDur: Double = 0.12
+        static let waterDropStreamThickness: CGFloat = 6   // Points before adaptive scaling
+        static let waterDropStreamLength: CGFloat = 0.10   // Fraction of perimeter covered by stream tail (0.0-1.0)
+        static let waterDropDotRadius: CGFloat = 8          // Points before adaptive scaling
+        static let terminalCornerRadius: CGFloat = 10
+
+        // FIFO trail lengths (maximum number of historic positions kept, newest first)
+        static let waterDropFlightTrailLength: Int = 18
+
+        // Burst particle counts
+        static let waterDropImpactBurstCount: Int = 14
+        static let waterDropSplashCount: Int = 6
+        static let waterDropMergeBurstCount: Int = 14
+
+        // Burst decay rates (life units per frame)
+        static let waterDropImpactBurstDecay: CGFloat = 0.04
+        static let waterDropMergeBurstDecay: CGFloat = 0.03
+
+        // Adaptive scale thresholds (minimum terminal dimension, in points)
+        static let waterDropScaleSmallThreshold: CGFloat = 300
+        static let waterDropScaleLargeThreshold: CGFloat = 2500
+
+        // Glow radius = dot radius × this multiplier
+        static let waterDropGlowRadiusMultiplier: CGFloat = 5
+
+        // Stream geometry samples per side
+        static let waterDropStreamSamples: Int = 60
+
         /// Returns a stagger delay for the given index. The total spread across all items is distributed within 250ms.
         static func staggerDelay(index: Int, total: Int) -> Double {
             guard total > 1, index >= 0 else { return 0 }
@@ -125,5 +158,10 @@ extension ClaudeInstance {
     var displayColor: Color {
         if let attentionType { return attentionType.color }
         return status.color
+    }
+
+    /// AppKit equivalent of `displayColor` for use in non-SwiftUI drawing contexts.
+    var displayNSColor: NSColor {
+        NSColor(displayColor)
     }
 }
