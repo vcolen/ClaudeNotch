@@ -48,9 +48,9 @@ final class ProcessScanner: @unchecked Sendable {
             let path = String(cString: pathBuffer)
 
             let isClaude: Bool
-            if path.contains("claude") {
+            if path.hasSuffix("/claude") || path.contains("claude-code") {
                 isClaude = true
-            } else if path.contains("node") {
+            } else if path.contains("/node") {
                 // Phase 3: For node processes, check command-line args
                 isClaude = isClaudeNode(pid: pid)
             } else {
@@ -68,29 +68,55 @@ final class ProcessScanner: @unchecked Sendable {
         return results
     }
 
-    /// Checks if a node process is running Claude by inspecting command-line args.
+    /// Checks if a node process is running Claude by inspecting command-line args only (not env vars).
+    /// KERN_PROCARGS2 layout: [argc: Int32] [exec_path\0] [argv[0]\0 argv[1]\0 ... argv[argc-1]\0] [env vars...]
     private func isClaudeNode(pid: Int32) -> Bool {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size: Int = 0
 
-        // First call to get buffer size
         guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 0 else { return false }
 
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
         defer { buffer.deallocate() }
 
         guard sysctl(&mib, 3, buffer, &size, nil, 0) == 0 else { return false }
-
-        // Skip argc (first 4 bytes), then scan the args as a string
         guard size > MemoryLayout<Int32>.size else { return false }
-        let argsStart = buffer.advanced(by: MemoryLayout<Int32>.size)
-        let argsLength = size - MemoryLayout<Int32>.size
 
-        // Convert to string for simple matching
-        let argsData = Data(bytes: argsStart, count: argsLength)
-        guard let argsString = String(data: argsData, encoding: .utf8) else { return false }
+        // Read argc
+        let argc = buffer.withMemoryRebound(to: Int32.self, capacity: 1) { $0.pointee }
+        guard argc > 0 else { return false }
 
-        return argsString.contains("claude")
+        // Walk past argc, then skip the exec path (null-terminated),
+        // then skip any padding nulls before argv starts
+        var pos = MemoryLayout<Int32>.size
+
+        // Skip exec path
+        while pos < size && buffer[pos] != 0 { pos += 1 }
+        // Skip trailing nulls after exec path
+        while pos < size && buffer[pos] == 0 { pos += 1 }
+
+        // Now extract only argv[0..argc-1], checking each for claude patterns
+        var argsFound = 0
+        while argsFound < argc && pos < size {
+            let argStart = pos
+            while pos < size && buffer[pos] != 0 { pos += 1 }
+            let argLength = pos - argStart
+            pos += 1 // skip null terminator
+
+            if argLength > 0 {
+                let argData = Data(bytes: buffer.advanced(by: argStart), count: argLength)
+                let arg = String(data: argData, encoding: .utf8) ?? ""
+                // Match specific Claude CLI patterns in argv
+                if arg.contains("@anthropic-ai/claude-code") ||
+                   arg.contains("/.claude/local") ||
+                   arg.hasSuffix("/claude") {
+                    return true
+                }
+            }
+            argsFound += 1
+        }
+
+        return false
     }
 
     /// Gets the current working directory of a process via proc_pidinfo.
