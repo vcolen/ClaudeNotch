@@ -68,66 +68,7 @@ final class WaterDropView: NSView {
 
     @objc func handleDisplayLink(_ sender: CADisplayLink) {
         elapsed = CACurrentMediaTime() - startTime
-        setNeedsDisplay(dirtyRect())
-    }
-
-    private func dirtyRect() -> NSRect {
-        let flight = NotchTokens.Animation.waterDropFlightDur
-        let impact = NotchTokens.Animation.waterDropImpactDur
-        let race = NotchTokens.Animation.waterDropRaceDur
-        let merge = NotchTokens.Animation.waterDropMergeDur
-
-        let landPt = geometry.pointOnBorder(at: 0)
-        let meetPt = geometry.pointOnBorder(at: 0.5)
-        let dotR = NotchTokens.Animation.waterDropDotRadius * scale
-        let glowR = dotR * NotchTokens.Animation.waterDropGlowRadiusMultiplier
-
-        if elapsed < flight {
-            // Flight: dot + glow + trail
-            let t = CGFloat(elapsed / flight)
-            let pos = WaterDropAnimator.AnimationGeometry.projectilePosition(t: t, from: notchCenter, to: landPt)
-            let pad = glowR + 4
-            var rect = NSRect(x: pos.x - pad, y: pos.y - pad, width: pad * 2, height: pad * 2)
-            for pt in flightTrail {
-                rect = rect.union(NSRect(x: pt.x - dotR, y: pt.y - dotR, width: dotR * 2, height: dotR * 2))
-            }
-            return rect
-        } else if elapsed < flight + impact {
-            // Impact: squished dot + splash ring + burst particles
-            let spread: CGFloat = dotR * NotchTokens.Animation.waterDropGlowRadiusMultiplier + 20
-            var rect = NSRect(x: landPt.x - spread, y: landPt.y - spread, width: spread * 2, height: spread * 2)
-            for p in impactBurst {
-                rect = rect.union(NSRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
-            }
-            for p in splashDroplets {
-                rect = rect.union(NSRect(x: p.x - 8, y: p.y - 8, width: 16, height: 16))
-            }
-            return rect
-        } else if elapsed < flight + impact + race {
-            // Race: full terminal rect + stream overflow + glow radius
-            let termRect = geometry.rect
-            let streamPad = (NotchTokens.Animation.waterDropStreamThickness * scale) + (8 * scale) + 4
-            return termRect.insetBy(dx: -streamPad, dy: -streamPad)
-        } else if elapsed < flight + impact + race + merge {
-            // Merge: meet point + burst particle spread
-            let pad = glowR + 20
-            var rect = NSRect(x: meetPt.x - pad, y: meetPt.y - pad, width: pad * 2, height: pad * 2)
-            for p in mergeBurst {
-                rect = rect.union(NSRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
-            }
-            return rect
-        } else {
-            // Return: dot + glow + trail
-            let returnDur = NotchTokens.Animation.waterDropReturnDur
-            let rp = CGFloat(min((elapsed - flight - impact - race - merge) / returnDur, 1))
-            let pos = WaterDropAnimator.AnimationGeometry.returnPosition(t: rp, from: meetPt, to: notchCenter)
-            let pad = glowR + 4
-            var rect = NSRect(x: pos.x - pad, y: pos.y - pad, width: pad * 2, height: pad * 2)
-            for pt in returnTrail {
-                rect = rect.union(NSRect(x: pt.x - dotR, y: pt.y - dotR, width: dotR * 2, height: dotR * 2))
-            }
-            return rect
-        }
+        needsDisplay = true
     }
 
     // MARK: - Drawing
