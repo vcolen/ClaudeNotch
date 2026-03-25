@@ -12,7 +12,7 @@ import os.log
 /// `animate(...)` falls back to a plain `WindowHighlighter.flashiTermWindow()` call and
 /// returns immediately without creating any view or task.
 ///
-/// **5-phase lifecycle** — see `WaterDropView` for per-phase rendering details.
+/// **4-phase lifecycle** — see `WaterDropView` for per-phase rendering details.
 @MainActor
 enum WaterDropAnimator {
 
@@ -200,11 +200,6 @@ enum WaterDropAnimator {
             parabolicArc(t: t, from: from, to: to, gravityBase: 600, gravityScale: 1.5)
         }
 
-        /// Parabolic arc for the return (terminal border → notch) flight.
-        /// Uses a lower base gravity (500 vs 600) for a gentler, floatier feel.
-        static func returnPosition(t: CGFloat, from: CGPoint, to: CGPoint) -> CGPoint {
-            parabolicArc(t: t, from: from, to: to, gravityBase: 500, gravityScale: 1.2)
-        }
     }
 
     // MARK: - Adaptive Scaling
@@ -284,7 +279,6 @@ enum WaterDropAnimator {
             + NotchTokens.Animation.waterDropImpactDur
             + NotchTokens.Animation.waterDropRaceDur
             + NotchTokens.Animation.waterDropMergeDur
-            + NotchTokens.Animation.waterDropReturnDur
 
         let task = Task { @MainActor in
             defer {

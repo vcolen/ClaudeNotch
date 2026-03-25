@@ -321,23 +321,6 @@ struct ArcShapeTests {
                 "Mid-point y (\(mid.y)) should deviate from linear mid-y (\(linearMidY)) — confirms arc, not line")
     }
 
-    @Test("Return mid-point y deviates from the straight line between start and end")
-    func returnMidPointNotLinear() {
-        let from = CGPoint(x: 300, y: 500)
-        let to = CGPoint(x: 200, y: 50)
-
-        let mid = WaterDropAnimator.AnimationGeometry.returnPosition(t: 0.5, from: from, to: to)
-
-        let linearMidX = (from.x + to.x) / 2  // 250
-        #expect(abs(mid.x - linearMidX) < 0.1,
-                "x at t=0.5 should equal linear interpolation")
-
-        let linearMidY = (from.y + to.y) / 2  // 275
-        let yDeviation = abs(mid.y - linearMidY)
-        #expect(yDeviation > 1.0,
-                "Mid-point y (\(mid.y)) should deviate from linear mid-y (\(linearMidY)) — confirms arc, not line")
-    }
-
     @Test("Projectile x at t=0.5 equals linear interpolation (horizontal motion is linear)")
     func projectileMidXIsLinear() {
         let from = CGPoint(x: 0, y: 0)
@@ -346,13 +329,6 @@ struct ArcShapeTests {
         #expect(abs(mid.x - 200) < 0.1)
     }
 
-    @Test("Return x at t=0.5 equals linear interpolation")
-    func returnMidXIsLinear() {
-        let from = CGPoint(x: 0, y: 400)
-        let to = CGPoint(x: 400, y: 0)
-        let mid = WaterDropAnimator.AnimationGeometry.returnPosition(t: 0.5, from: from, to: to)
-        #expect(abs(mid.x - 200) < 0.1)
-    }
 }
 
 // MARK: - 5.7 Water Drop Token Invariants
@@ -381,11 +357,6 @@ struct WaterDropTokenInvariantTests {
         #expect(NotchTokens.Animation.waterDropMergeDur > 0)
     }
 
-    @Test("waterDropReturnDur is positive")
-    func returnDurPositive() {
-        #expect(NotchTokens.Animation.waterDropReturnDur > 0)
-    }
-
     // Total animation must be under 3 seconds to avoid feeling sluggish
     @Test("Total water drop animation is under 3 seconds")
     func totalAnimationUnder3s() {
@@ -393,7 +364,6 @@ struct WaterDropTokenInvariantTests {
             + NotchTokens.Animation.waterDropImpactDur
             + NotchTokens.Animation.waterDropRaceDur
             + NotchTokens.Animation.waterDropMergeDur
-            + NotchTokens.Animation.waterDropReturnDur
         #expect(total < 3.0, "Total animation \(total)s should be under 3s")
     }
 

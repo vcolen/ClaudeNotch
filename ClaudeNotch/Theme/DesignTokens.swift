@@ -78,7 +78,6 @@ enum NotchTokens {
         static let waterDropImpactDur: Double = 0.08
         static let waterDropRaceDur: Double = 0.60
         static let waterDropMergeDur: Double = 0.12
-        static let waterDropReturnDur: Double = 0.50
         static let waterDropStreamThickness: CGFloat = 6   // Points before adaptive scaling
         static let waterDropStreamLength: CGFloat = 0.10   // Fraction of perimeter covered by stream tail (0.0-1.0)
         static let waterDropDotRadius: CGFloat = 8          // Points before adaptive scaling
@@ -86,7 +85,6 @@ enum NotchTokens {
 
         // FIFO trail lengths (maximum number of historic positions kept, newest first)
         static let waterDropFlightTrailLength: Int = 18
-        static let waterDropReturnTrailLength: Int = 12
 
         // Burst particle counts
         static let waterDropImpactBurstCount: Int = 14

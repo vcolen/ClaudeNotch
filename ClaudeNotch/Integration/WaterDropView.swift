@@ -3,12 +3,11 @@ import QuartzCore
 
 /// Full-screen overlay that renders one complete water-drop animation cycle.
 ///
-/// **5-phase lifecycle** (driven by `CADisplayLink`):
+/// **4-phase lifecycle** (driven by `CADisplayLink`):
 /// 1. **Flight** – a dot follows a parabolic arc from the notch to the terminal border.
-/// 2. **Race / stream** – two liquid streams race clockwise and counter-clockwise around the terminal border until they meet at the bottom-center.
-/// 3. **Impact** – the dot squishes and emits a splash ring and burst particles on landing.
+/// 2. **Impact** – the dot squishes and emits a splash ring and burst particles on landing.
+/// 3. **Race / stream** – two liquid streams race clockwise and counter-clockwise around the terminal border until they meet at the bottom-center.
 /// 4. **Merge** – the two streams collide at the meeting point with a pulsing burst.
-/// 5. **Return** – the merged dot arcs back up to the notch and fades out.
 ///
 /// The view is created and owned by `WaterDropAnimator.animate(...)` for the duration of one animation.
 /// Reduce-motion is handled at the animator level; this view is never instantiated when reduce-motion is enabled.
@@ -32,8 +31,6 @@ final class WaterDropView: NSView {
 
     // FIFO trails (newest first): head is the current frame, tail fades to transparent
     private var flightTrail: [CGPoint] = []
-    private var returnTrail: [CGPoint] = []
-
     // Burst particles
     private var impactBurst: [Particle] = []
     private var mergeBurst: [Particle] = []
@@ -90,11 +87,8 @@ final class WaterDropView: NSView {
             drawImpact(ctx, progress: (elapsed - flight) / impact, landPt: landPt)
         } else if elapsed < flight + impact + race {
             drawRace(ctx, progress: (elapsed - flight - impact) / race, meetPt: meetPt)
-        } else if elapsed < flight + impact + race + merge {
-            drawMerge(ctx, progress: (elapsed - flight - impact - race) / merge, meetPt: meetPt)
         } else {
-            let returnDur = NotchTokens.Animation.waterDropReturnDur
-            drawReturn(ctx, progress: (elapsed - flight - impact - race - merge) / returnDur, meetPt: meetPt)
+            drawMerge(ctx, progress: (elapsed - flight - impact - race) / merge, meetPt: meetPt)
         }
 
         // Terminal border glow: flash at impact, fade through race
@@ -331,34 +325,6 @@ final class WaterDropView: NSView {
         let pulse = 1 + sin(mp * .pi * 2) * 0.3
         let dotR = NotchTokens.Animation.waterDropDotRadius * scale
         drawDot(ctx, at: meetPt, radius: dotR * pulse, alpha: 1, glow: true)
-    }
-
-    // MARK: - Phase 5: Return
-
-    private func drawReturn(_ ctx: CGContext, progress p: Double, meetPt: CGPoint) {
-        let rp = CGFloat(min(p, 1))
-        let pos = WaterDropAnimator.AnimationGeometry.returnPosition(t: rp, from: meetPt, to: notchCenter)
-        let next = WaterDropAnimator.AnimationGeometry.returnPosition(
-            t: min(1, rp + 0.015), from: meetPt, to: notchCenter
-        )
-
-        let angle = atan2(next.y - pos.y, next.x - pos.x)
-        let speed = hypot(next.x - pos.x, next.y - pos.y)
-        let stretch = 1 + min(speed * 0.05, 0.6)
-        let dotR = NotchTokens.Animation.waterDropDotRadius * scale
-        let size = dotR * (1 - rp * 0.4)
-        let alpha = 1 - rp * 0.3
-
-        ctx.withGState { ctx in
-            ctx.translateBy(x: pos.x, y: pos.y)
-            ctx.rotate(by: angle)
-            ctx.scaleBy(x: stretch, y: 1 / stretch)
-            drawDot(ctx, at: .zero, radius: size, alpha: alpha, glow: true)
-        }
-
-        returnTrail.insert(pos, at: 0)
-        if returnTrail.count > NotchTokens.Animation.waterDropReturnTrailLength { returnTrail.removeLast() }
-        drawTrail(ctx, trail: returnTrail, maxAlpha: 0.35 * (1 - rp * 0.5))
     }
 
     // MARK: - Terminal Glow

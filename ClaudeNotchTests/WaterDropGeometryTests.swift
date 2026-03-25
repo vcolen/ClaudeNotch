@@ -90,26 +90,6 @@ struct WaterDropGeometryTests {
         #expect(abs(pos.y - to.y) < 0.001)
     }
 
-    // MARK: - returnPosition
-
-    @Test("Return at t=0 equals start point")
-    func returnStart() {
-        let from = CGPoint(x: 300, y: 500)
-        let to = CGPoint(x: 200, y: 50)
-        let pos = WaterDropAnimator.AnimationGeometry.returnPosition(t: 0, from: from, to: to)
-        #expect(abs(pos.x - from.x) < 0.001)
-        #expect(abs(pos.y - from.y) < 0.001)
-    }
-
-    @Test("Return at t=1 equals end point")
-    func returnEnd() {
-        let from = CGPoint(x: 300, y: 500)
-        let to = CGPoint(x: 200, y: 50)
-        let pos = WaterDropAnimator.AnimationGeometry.returnPosition(t: 1, from: from, to: to)
-        #expect(abs(pos.x - to.x) < 0.001)
-        #expect(abs(pos.y - to.y) < 0.001)
-    }
-
     // MARK: - LUT vs direct computation
 
     @Test("LUT values match direct computation within 1px")
