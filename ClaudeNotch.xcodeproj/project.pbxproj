@@ -3,26 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 71;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		A1B2C3D400000001 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000002 /* Network.framework */; };
 		A1B2C3D400000003 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000004 /* ServiceManagement.framework */; };
-		/* App Sources */
+		A1B2C3D4000000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000024 /* Assets.xcassets */; };
 		A1B2C3D4000000B0 /* ClaudeNotchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000010 /* ClaudeNotchApp.swift */; };
 		A1B2C3D4000000B1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000011 /* AppDelegate.swift */; };
-		/* Window Sources */
 		A1B2C3D4000000B2 /* NotchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000012 /* NotchPanel.swift */; };
 		A1B2C3D4000000B3 /* NotchPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000013 /* NotchPanelController.swift */; };
 		A1B2C3D4000000B4 /* ScreenObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000014 /* ScreenObserver.swift */; };
-		/* Data Sources */
 		A1B2C3D4000000B5 /* ClaudeInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000015 /* ClaudeInstance.swift */; };
 		A1B2C3D4000000B6 /* InstanceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000016 /* InstanceManager.swift */; };
 		A1B2C3D4000000B7 /* SocketListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000017 /* SocketListener.swift */; };
 		A1B2C3D4000000B8 /* CostReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000018 /* CostReader.swift */; };
 		A1B2C3D4000000B9 /* PanelState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000019 /* PanelState.swift */; };
-		/* Views Sources */
 		A1B2C3D4000000BA /* NotchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001A /* NotchView.swift */; };
 		A1B2C3D4000000BB /* CollapsedNotchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001B /* CollapsedNotchView.swift */; };
 		A1B2C3D4000000BC /* ExpandedNotchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001C /* ExpandedNotchView.swift */; };
@@ -30,44 +27,34 @@
 		A1B2C3D4000000BE /* StatusDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001E /* StatusDot.swift */; };
 		A1B2C3D4000000BF /* ContextUsageBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001F /* ContextUsageBar.swift */; };
 		A1B2C3D4000000C0 /* NotchShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000020 /* NotchShape.swift */; };
-		/* Integration Sources */
 		A1B2C3D4000000C1 /* ITermIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000021 /* ITermIntegration.swift */; };
 		A1B2C3D4000000C2 /* RecentProjectsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000022 /* RecentProjectsStore.swift */; };
+		A1B2C3D4000000C3 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000026 /* DesignTokens.swift */; };
+		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
+		A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000028 /* ProjectGroup.swift */; };
+		A1B2C3D4000000C6 /* BranchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000029 /* BranchRowView.swift */; };
+		A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002A /* ProjectGroupView.swift */; };
 		A1B2C3D4000000C8 /* TerminalFocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002B /* TerminalFocusMonitor.swift */; };
 		A1B2C3D4000000C9 /* WindowHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002C /* WindowHighlighter.swift */; };
-		A1B2C3D4000000CF /* WaterDropAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000035 /* WaterDropAnimator.swift */; };
-		A1B2C3D4000000D8 /* WaterDropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000036 /* WaterDropView.swift */; };
-		/* Theme Sources */
-		A1B2C3D4000000C3 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000026 /* DesignTokens.swift */; };
-		/* Resources */
-		A1B2C3D4000000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000024 /* Assets.xcassets */; };
-		/* Test Sources */
+		A1B2C3D4000000CA /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002D /* NotificationManager.swift */; };
+		A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002E /* NotificationBannerView.swift */; };
+		A1B2C3D4000000CC /* NotificationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000032 /* NotificationItem.swift */; };
+		A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000033 /* AnimationModifiers.swift */; };
+		A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000034 /* NSAnimationHelper.swift */; };
+		B23E6FE92F74670A002024AE /* ProcessScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23E6FEA2F74670A002024AE /* ProcessScanner.swift */; };
+		B23E6FEB2F74670B002024AE /* WaterDropAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23E6FEC2F74670B002024AE /* WaterDropAnimator.swift */; };
+		B23E6FED2F74670C002024AE /* WaterDropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000036 /* WaterDropView.swift */; };
 		A1B2C3D4000000D0 /* InstanceManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000040 /* InstanceManagerTests.swift */; };
 		A1B2C3D4000000D1 /* SocketEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000041 /* SocketEventTests.swift */; };
 		A1B2C3D4000000D2 /* CostReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000042 /* CostReaderTests.swift */; };
 		A1B2C3D4000000D3 /* ITermSanitizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000043 /* ITermSanitizationTests.swift */; };
-		/* GitBranch Sources */
-		A1B2C3D4000000C4 /* GitBranchReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000027 /* GitBranchReader.swift */; };
 		A1B2C3D4000000D4 /* GitBranchReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000044 /* GitBranchReaderTests.swift */; };
 		A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000045 /* NotchPanelTests.swift */; };
 		A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000046 /* NotificationManagerTests.swift */; };
-		/* ProjectGroup Sources */
-		A1B2C3D4000000C5 /* ProjectGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000028 /* ProjectGroup.swift */; };
-		A1B2C3D4000000C6 /* BranchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000029 /* BranchRowView.swift */; };
-		A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002A /* ProjectGroupView.swift */; };
-		/* Notification Sources */
-		A1B2C3D4000000CC /* NotificationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000032 /* NotificationItem.swift */; };
-		A1B2C3D4000000CA /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002D /* NotificationManager.swift */; };
-		A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000002E /* NotificationBannerView.swift */; };
-		/* Animation Sources */
-		A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000033 /* AnimationModifiers.swift */; };
-		A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000034 /* NSAnimationHelper.swift */; };
 		A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000047 /* AnimationTokenTests.swift */; };
 		A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000048 /* WaterDropGeometryTests.swift */; };
 		A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000049 /* WaterDropAnimationTests.swift */; };
-		/* ProcessScanner Sources */
-		A1B2C3D4000000CF /* ProcessScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000035 /* ProcessScanner.swift */; };
-		A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000004A /* ProcessScannerTests.swift */; };
+		B23E6FE82F74660F002024AE /* ProcessScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000004A /* ProcessScannerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,20 +68,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		/* App Sources */
+		A1B2C3D400000002 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		A1B2C3D400000004 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
 		A1B2C3D400000010 /* ClaudeNotchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeNotchApp.swift; sourceTree = "<group>"; };
 		A1B2C3D400000011 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		/* Window Sources */
 		A1B2C3D400000012 /* NotchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanel.swift; sourceTree = "<group>"; };
 		A1B2C3D400000013 /* NotchPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanelController.swift; sourceTree = "<group>"; };
 		A1B2C3D400000014 /* ScreenObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenObserver.swift; sourceTree = "<group>"; };
-		/* Data Sources */
 		A1B2C3D400000015 /* ClaudeInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeInstance.swift; sourceTree = "<group>"; };
 		A1B2C3D400000016 /* InstanceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceManager.swift; sourceTree = "<group>"; };
 		A1B2C3D400000017 /* SocketListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketListener.swift; sourceTree = "<group>"; };
 		A1B2C3D400000018 /* CostReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostReader.swift; sourceTree = "<group>"; };
 		A1B2C3D400000019 /* PanelState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelState.swift; sourceTree = "<group>"; };
-		/* Views Sources */
 		A1B2C3D40000001A /* NotchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchView.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001B /* CollapsedNotchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollapsedNotchView.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001C /* ExpandedNotchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedNotchView.swift; sourceTree = "<group>"; };
@@ -102,51 +87,38 @@
 		A1B2C3D40000001E /* StatusDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDot.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001F /* ContextUsageBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextUsageBar.swift; sourceTree = "<group>"; };
 		A1B2C3D400000020 /* NotchShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchShape.swift; sourceTree = "<group>"; };
-		/* Integration Sources */
 		A1B2C3D400000021 /* ITermIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ITermIntegration.swift; sourceTree = "<group>"; };
 		A1B2C3D400000022 /* RecentProjectsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentProjectsStore.swift; sourceTree = "<group>"; };
-		A1B2C3D40000002B /* TerminalFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFocusMonitor.swift; sourceTree = "<group>"; };
-		A1B2C3D40000002C /* WindowHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowHighlighter.swift; sourceTree = "<group>"; };
-		A1B2C3D400000035 /* WaterDropAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropAnimator.swift; sourceTree = "<group>"; };
-		A1B2C3D400000036 /* WaterDropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropView.swift; sourceTree = "<group>"; };
-		/* Theme Sources */
-		A1B2C3D400000026 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
-		/* Resources */
 		A1B2C3D400000023 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D400000024 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1B2C3D400000025 /* ClaudeNotch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeNotch.entitlements; sourceTree = "<group>"; };
-		/* Frameworks */
-		A1B2C3D400000002 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
-		A1B2C3D400000004 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
-		/* Products */
+		A1B2C3D400000026 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
+		A1B2C3D400000027 /* GitBranchReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReader.swift; sourceTree = "<group>"; };
+		A1B2C3D400000028 /* ProjectGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroup.swift; sourceTree = "<group>"; };
+		A1B2C3D400000029 /* BranchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchRowView.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002A /* ProjectGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroupView.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002B /* TerminalFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFocusMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002C /* WindowHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowHighlighter.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002D /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		A1B2C3D40000002E /* NotificationBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerView.swift; sourceTree = "<group>"; };
 		A1B2C3D400000030 /* ClaudeNotch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeNotch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D400000031 /* ClaudeNotchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaudeNotchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		/* Test Sources */
+		A1B2C3D400000032 /* NotificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationItem.swift; sourceTree = "<group>"; };
+		A1B2C3D400000033 /* AnimationModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationModifiers.swift; sourceTree = "<group>"; };
+		A1B2C3D400000034 /* NSAnimationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSAnimationHelper.swift; sourceTree = "<group>"; };
+		A1B2C3D400000036 /* WaterDropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropView.swift; sourceTree = "<group>"; };
+		B23E6FEA2F74670A002024AE /* ProcessScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScanner.swift; sourceTree = "<group>"; };
+		B23E6FEC2F74670B002024AE /* WaterDropAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropAnimator.swift; sourceTree = "<group>"; };
 		A1B2C3D400000040 /* InstanceManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceManagerTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000041 /* SocketEventTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketEventTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000042 /* CostReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostReaderTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000043 /* ITermSanitizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ITermSanitizationTests.swift; sourceTree = "<group>"; };
-		/* GitBranch */
-		A1B2C3D400000027 /* GitBranchReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReader.swift; sourceTree = "<group>"; };
 		A1B2C3D400000044 /* GitBranchReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchReaderTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000045 /* NotchPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanelTests.swift; sourceTree = "<group>"; };
-		/* ProjectGroup */
-		A1B2C3D400000028 /* ProjectGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroup.swift; sourceTree = "<group>"; };
-		A1B2C3D400000029 /* BranchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchRowView.swift; sourceTree = "<group>"; };
-		A1B2C3D40000002A /* ProjectGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectGroupView.swift; sourceTree = "<group>"; };
-		/* Notification */
-		A1B2C3D400000032 /* NotificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationItem.swift; sourceTree = "<group>"; };
-		A1B2C3D40000002D /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		A1B2C3D40000002E /* NotificationBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBannerView.swift; sourceTree = "<group>"; };
 		A1B2C3D400000046 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
-		/* Animation */
-		A1B2C3D400000033 /* AnimationModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationModifiers.swift; sourceTree = "<group>"; };
-		A1B2C3D400000034 /* NSAnimationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSAnimationHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D400000047 /* AnimationTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTokenTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000048 /* WaterDropGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropGeometryTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000049 /* WaterDropAnimationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropAnimationTests.swift; sourceTree = "<group>"; };
-		/* ProcessScanner */
-		A1B2C3D400000035 /* ProcessScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScanner.swift; sourceTree = "<group>"; };
 		A1B2C3D40000004A /* ProcessScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScannerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -170,7 +142,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A1B2C3D400000060 /* = mainGroup = */ = {
+		A1B2C3D400000060 = {
 			isa = PBXGroup;
 			children = (
 				A1B2C3D400000061 /* ClaudeNotch */,
@@ -226,7 +198,6 @@
 				A1B2C3D400000019 /* PanelState.swift */,
 				A1B2C3D400000032 /* NotificationItem.swift */,
 				A1B2C3D40000002D /* NotificationManager.swift */,
-				A1B2C3D400000035 /* ProcessScanner.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -253,31 +224,14 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D400000021 /* ITermIntegration.swift */,
+				B23E6FEA2F74670A002024AE /* ProcessScanner.swift */,
 				A1B2C3D400000022 /* RecentProjectsStore.swift */,
 				A1B2C3D40000002B /* TerminalFocusMonitor.swift */,
-				A1B2C3D400000035 /* WaterDropAnimator.swift */,
+				B23E6FEC2F74670B002024AE /* WaterDropAnimator.swift */,
 				A1B2C3D400000036 /* WaterDropView.swift */,
 				A1B2C3D40000002C /* WindowHighlighter.swift */,
 			);
 			path = Integration;
-			sourceTree = "<group>";
-		};
-		A1B2C3D40000006B /* Theme */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D400000026 /* DesignTokens.swift */,
-			);
-			path = Theme;
-			sourceTree = "<group>";
-		};
-		A1B2C3D40000006A /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D400000023 /* Info.plist */,
-				A1B2C3D400000024 /* Assets.xcassets */,
-				A1B2C3D400000025 /* ClaudeNotch.entitlements */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		A1B2C3D400000067 /* ClaudeNotchTests */ = {
@@ -314,6 +268,24 @@
 				A1B2C3D400000031 /* ClaudeNotchTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1B2C3D40000006A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D400000023 /* Info.plist */,
+				A1B2C3D400000024 /* Assets.xcassets */,
+				A1B2C3D400000025 /* ClaudeNotch.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1B2C3D40000006B /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D400000026 /* DesignTokens.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -434,15 +406,14 @@
 				A1B2C3D4000000C7 /* ProjectGroupView.swift in Sources */,
 				A1B2C3D4000000C8 /* TerminalFocusMonitor.swift in Sources */,
 				A1B2C3D4000000C9 /* WindowHighlighter.swift in Sources */,
-				A1B2C3D4000000CF /* WaterDropAnimator.swift in Sources */,
-				A1B2C3D4000000D8 /* WaterDropView.swift in Sources */,
 				A1B2C3D4000000CC /* NotificationItem.swift in Sources */,
-
 				A1B2C3D4000000CA /* NotificationManager.swift in Sources */,
 				A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */,
 				A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */,
 				A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */,
-				A1B2C3D4000000CF /* ProcessScanner.swift in Sources */,
+				B23E6FE92F74670A002024AE /* ProcessScanner.swift in Sources */,
+				B23E6FEB2F74670B002024AE /* WaterDropAnimator.swift in Sources */,
+				B23E6FED2F74670C002024AE /* WaterDropView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -460,7 +431,7 @@
 				A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */,
 				A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */,
 				A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */,
-				A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */,
+				B23E6FE82F74660F002024AE /* ProcessScannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,7 +446,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		/* Debug - Project */
 		A1B2C3D4000000E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -539,7 +509,6 @@
 			};
 			name = Debug;
 		};
-		/* Release - Project */
 		A1B2C3D4000000E1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -595,7 +564,6 @@
 			};
 			name = Release;
 		};
-		/* Debug - ClaudeNotch Target */
 		A1B2C3D4000000E2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -604,6 +572,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QNHX86K7F4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeNotch/Resources/Info.plist;
@@ -621,7 +590,6 @@
 			};
 			name = Debug;
 		};
-		/* Release - ClaudeNotch Target */
 		A1B2C3D4000000E3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -630,6 +598,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QNHX86K7F4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeNotch/Resources/Info.plist;
@@ -647,13 +616,13 @@
 			};
 			name = Release;
 		};
-		/* Debug - ClaudeNotchTests Target */
 		A1B2C3D4000000E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
@@ -662,18 +631,17 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
-				ENABLE_TESTING_SEARCH_PATHS = YES;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeNotch.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClaudeNotch";
 			};
 			name = Debug;
 		};
-		/* Release - ClaudeNotchTests Target */
 		A1B2C3D4000000E5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
@@ -682,7 +650,6 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
-				ENABLE_TESTING_SEARCH_PATHS = YES;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeNotch.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClaudeNotch";
 			};
 			name = Release;
