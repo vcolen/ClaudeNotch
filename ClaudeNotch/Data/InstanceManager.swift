@@ -11,8 +11,10 @@ final class InstanceManager {
     private var staleSweepTask: Task<Void, Never>?
     private var costPollTask: Task<Void, Never>?
     private var stateFilePollTask: Task<Void, Never>?
+    private var processScanTask: Task<Void, Never>?
     private let costReader = CostReader()
     private let branchReader = GitBranchReader()
+    private let processScanner = ProcessScanner()
 
     private static let stateFilePath = "/tmp/screen-blocker/state.json"
 
@@ -121,6 +123,7 @@ final class InstanceManager {
             syncFromStateFile()
             startStalePIDSweep()
             startStateFilePolling()
+            startProcessScanning()
         }
     }
 
@@ -128,6 +131,7 @@ final class InstanceManager {
         staleSweepTask?.cancel()
         costPollTask?.cancel()
         stateFilePollTask?.cancel()
+        processScanTask?.cancel()
     }
 
     // MARK: - PID Deduplication
@@ -222,11 +226,13 @@ final class InstanceManager {
 
         // Remove instances no longer in state file,
         // but keep recently-updated instances (socket events may be ahead of state file)
+        // and instances whose process is still alive (socket-only instances)
         let staleThreshold = Date().addingTimeInterval(-Self.staleGracePeriod)
         let removedIds = Set(instances.keys).subtracting(activeCanonicalIds)
         for id in removedIds {
-            if let instance = instances[id], instance.updatedAt > staleThreshold {
-                continue
+            if let instance = instances[id] {
+                if instance.updatedAt > staleThreshold { continue }
+                if isProcessAlive(pid: instance.pid) { continue }
             }
             instances.removeValue(forKey: id)
         }
@@ -324,7 +330,7 @@ final class InstanceManager {
         switch status {
         case "active", "processing", "running_tool", "compacting":
             return .working
-        case "waiting_for_input", "waiting_for_approval":
+        case "waiting_for_input", "waiting_for_approval", "notification":
             return .waitingInput
         case "idle", "unknown":
             return .idle
@@ -372,6 +378,46 @@ final class InstanceManager {
 
         let path = String(cString: pathBuffer)
         return path.contains("claude") || path.contains("node")
+    }
+
+    // MARK: - Process Scanning
+
+    private func startProcessScanning() {
+        processScanTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(ProcessScanner.scanInterval))
+                } catch {
+                    break
+                }
+                guard let self else { return }
+                let processes = await Task.detached { [scanner = self.processScanner] in
+                    scanner.scan()
+                }.value
+                self.syncFromProcessScan(processes)
+            }
+        }
+    }
+
+    func syncFromProcessScan(_ processes: [ProcessScanner.DiscoveredProcess]) {
+        for process in processes {
+            // Skip if already tracked by PID
+            guard existingInstance(forPID: process.pid) == nil else { continue }
+            // Verify process is still alive (prevents race with ended events)
+            guard isProcessAlive(pid: process.pid) else { continue }
+
+            let sessionId = "ps-\(process.pid)"
+            guard instances[sessionId] == nil else { continue }
+
+            let instance = ClaudeInstance(
+                id: sessionId, pid: process.pid, cwd: process.cwd, status: .idle
+            )
+            let gitRoot = branchReader.gitRootDirectory(from: process.cwd)
+            instance.projectName = ((gitRoot ?? process.cwd) as NSString).lastPathComponent
+            instance.branchName = branchReader.readBranch(forDirectory: process.cwd)
+            instance.remoteURL = branchReader.readRemoteURL(forDirectory: process.cwd)
+            instances[sessionId] = instance
+        }
     }
 
     // MARK: - Cost Polling

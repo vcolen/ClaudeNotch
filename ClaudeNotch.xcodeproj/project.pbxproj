@@ -61,6 +61,9 @@
 		A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000033 /* AnimationModifiers.swift */; };
 		A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000034 /* NSAnimationHelper.swift */; };
 		A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000047 /* AnimationTokenTests.swift */; };
+		/* ProcessScanner Sources */
+		A1B2C3D4000000CF /* ProcessScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000035 /* ProcessScanner.swift */; };
+		A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000048 /* ProcessScannerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -134,6 +137,9 @@
 		A1B2C3D400000033 /* AnimationModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationModifiers.swift; sourceTree = "<group>"; };
 		A1B2C3D400000034 /* NSAnimationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSAnimationHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D400000047 /* AnimationTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTokenTests.swift; sourceTree = "<group>"; };
+		/* ProcessScanner */
+		A1B2C3D400000035 /* ProcessScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScanner.swift; sourceTree = "<group>"; };
+		A1B2C3D400000048 /* ProcessScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessScannerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -212,6 +218,7 @@
 				A1B2C3D400000019 /* PanelState.swift */,
 				A1B2C3D400000032 /* NotificationItem.swift */,
 				A1B2C3D40000002D /* NotificationManager.swift */,
+				A1B2C3D400000035 /* ProcessScanner.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -274,6 +281,7 @@
 				A1B2C3D400000045 /* NotchPanelTests.swift */,
 				A1B2C3D400000046 /* NotificationManagerTests.swift */,
 				A1B2C3D400000047 /* AnimationTokenTests.swift */,
+				A1B2C3D400000048 /* ProcessScannerTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -420,6 +428,7 @@
 				A1B2C3D4000000CB /* NotificationBannerView.swift in Sources */,
 				A1B2C3D4000000CD /* AnimationModifiers.swift in Sources */,
 				A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */,
+				A1B2C3D4000000CF /* ProcessScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -435,6 +444,7 @@
 				A1B2C3D4000000D5 /* NotchPanelTests.swift in Sources */,
 				A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */,
 				A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */,
+				A1B2C3D4000000D8 /* ProcessScannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
