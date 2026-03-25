@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os.log
 
 @MainActor
 final class NotchPanelController {
@@ -11,6 +12,9 @@ final class NotchPanelController {
 
     private let expandedWidth: CGFloat = 340
     private var observationTask: Task<Void, Never>?
+    private var selectionAnimationTask: Task<Void, Never>?
+
+    private static let log = Logger(subsystem: "com.claudenotch", category: "NotchPanelController")
 
     init(screen: NSScreen, instanceManager: InstanceManager) {
         self.screen = screen
@@ -82,23 +86,37 @@ final class NotchPanelController {
                 guard let instanceManager, let self else { return }
                 instanceManager.clearAttention(for: instance.id)
 
-                // Launch from where the user clicked (the card)
-                let notchCenter = NSEvent.mouseLocation
-                let color = WaterDropAnimator.nsColor(for: instance)
+                // Capture mouse position at click time (card position on screen)
+                let clickOrigin = NSEvent.mouseLocation
+                let color = instance.displayNSColor
+                let screen = self.screen
 
-                Task { @MainActor in
+                // Cancel any previous selection animation to avoid racing animations
+                self.selectionAnimationTask?.cancel()
+                self.selectionAnimationTask = Task { @MainActor in
                     await ITermIntegration.focusSession(tty: instance.tty, pid: instance.pid)
-                    try? await Task.sleep(for: .milliseconds(150))
+                    do {
+                        try await Task.sleep(for: .milliseconds(150))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        Self.log.error("Unexpected error during selection animation sleep: \(error, privacy: .public)")
+                        return
+                    }
+                    guard !Task.isCancelled else { return }
 
                     guard let iterm = WindowHighlighter.iTermWindow(forTTY: instance.tty)
-                        ?? WindowHighlighter.frontmostiTermWindow() else { return }
+                        ?? WindowHighlighter.frontmostiTermWindow() else {
+                        Self.log.error("Window lookup failed for TTY \"\(instance.tty ?? "nil", privacy: .private)\" — falling back to flash")
+                        WindowHighlighter.flashiTermWindow()
+                        return
+                    }
 
                     WaterDropAnimator.animate(
-                        from: notchCenter,
+                        from: clickOrigin,
                         to: iterm.frame,
-                        terminalWindowNumber: iterm.windowNumber,
                         color: color,
-                        on: self.screen
+                        on: screen
                     )
                 }
             }

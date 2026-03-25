@@ -1,6 +1,17 @@
 import AppKit
 import QuartzCore
 
+/// Full-screen overlay that renders one complete water-drop animation cycle.
+///
+/// **5-phase lifecycle** (driven by `CADisplayLink`):
+/// 1. **Flight** – a dot follows a parabolic arc from the notch to the terminal border.
+/// 2. **Race / stream** – two liquid streams race clockwise and counter-clockwise around the terminal border until they meet at the bottom-center.
+/// 3. **Impact** – the dot squishes and emits a splash ring and burst particles on landing.
+/// 4. **Merge** – the two streams collide at the meeting point with a pulsing burst.
+/// 5. **Return** – the merged dot arcs back up to the notch and fades out.
+///
+/// The view is created and owned by `WaterDropAnimator.animate(...)` for the duration of one animation.
+/// Reduce-motion is handled at the animator level; this view is never instantiated when reduce-motion is enabled.
 final class WaterDropView: NSView {
 
     override var isFlipped: Bool { true }
@@ -19,7 +30,7 @@ final class WaterDropView: NSView {
     private var outerPoints: [CGPoint] = []
     private var innerPoints: [CGPoint] = []
 
-    // Trail ring buffers
+    // FIFO trails (newest first): head is the current frame, tail fades to transparent
     private var flightTrail: [CGPoint] = []
     private var returnTrail: [CGPoint] = []
 
@@ -37,7 +48,7 @@ final class WaterDropView: NSView {
         self.geometry = geometry
         self.scale = scale
 
-        let rgb = color.usingColorSpace(.sRGB) ?? color
+        let rgb = color.usingColorSpace(.sRGB) ?? NSColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0)
         self.colorR = rgb.redComponent
         self.colorG = rgb.greenComponent
         self.colorB = rgb.blueComponent
@@ -57,7 +68,66 @@ final class WaterDropView: NSView {
 
     @objc func handleDisplayLink(_ sender: CADisplayLink) {
         elapsed = CACurrentMediaTime() - startTime
-        needsDisplay = true
+        setNeedsDisplay(dirtyRect())
+    }
+
+    private func dirtyRect() -> NSRect {
+        let flight = NotchTokens.Animation.waterDropFlightDur
+        let impact = NotchTokens.Animation.waterDropImpactDur
+        let race = NotchTokens.Animation.waterDropRaceDur
+        let merge = NotchTokens.Animation.waterDropMergeDur
+
+        let landPt = geometry.pointOnBorder(at: 0)
+        let meetPt = geometry.pointOnBorder(at: 0.5)
+        let dotR = NotchTokens.Animation.waterDropDotRadius * scale
+        let glowR = dotR * NotchTokens.Animation.waterDropGlowRadiusMultiplier
+
+        if elapsed < flight {
+            // Flight: dot + glow + trail
+            let t = CGFloat(elapsed / flight)
+            let pos = WaterDropAnimator.AnimationGeometry.projectilePosition(t: t, from: notchCenter, to: landPt)
+            let pad = glowR + 4
+            var rect = NSRect(x: pos.x - pad, y: pos.y - pad, width: pad * 2, height: pad * 2)
+            for pt in flightTrail {
+                rect = rect.union(NSRect(x: pt.x - dotR, y: pt.y - dotR, width: dotR * 2, height: dotR * 2))
+            }
+            return rect
+        } else if elapsed < flight + impact {
+            // Impact: squished dot + splash ring + burst particles
+            let spread: CGFloat = dotR * NotchTokens.Animation.waterDropGlowRadiusMultiplier + 20
+            var rect = NSRect(x: landPt.x - spread, y: landPt.y - spread, width: spread * 2, height: spread * 2)
+            for p in impactBurst {
+                rect = rect.union(NSRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
+            }
+            for p in splashDroplets {
+                rect = rect.union(NSRect(x: p.x - 8, y: p.y - 8, width: 16, height: 16))
+            }
+            return rect
+        } else if elapsed < flight + impact + race {
+            // Race: full terminal rect + stream overflow + glow radius
+            let termRect = geometry.rect
+            let streamPad = (NotchTokens.Animation.waterDropStreamThickness * scale) + (8 * scale) + 4
+            return termRect.insetBy(dx: -streamPad, dy: -streamPad)
+        } else if elapsed < flight + impact + race + merge {
+            // Merge: meet point + burst particle spread
+            let pad = glowR + 20
+            var rect = NSRect(x: meetPt.x - pad, y: meetPt.y - pad, width: pad * 2, height: pad * 2)
+            for p in mergeBurst {
+                rect = rect.union(NSRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
+            }
+            return rect
+        } else {
+            // Return: dot + glow + trail
+            let returnDur = NotchTokens.Animation.waterDropReturnDur
+            let rp = CGFloat(min((elapsed - flight - impact - race - merge) / returnDur, 1))
+            let pos = WaterDropAnimator.AnimationGeometry.returnPosition(t: rp, from: meetPt, to: notchCenter)
+            let pad = glowR + 4
+            var rect = NSRect(x: pos.x - pad, y: pos.y - pad, width: pad * 2, height: pad * 2)
+            for pt in returnTrail {
+                rect = rect.union(NSRect(x: pt.x - dotR, y: pt.y - dotR, width: dotR * 2, height: dotR * 2))
+            }
+            return rect
+        }
     }
 
     // MARK: - Drawing
@@ -117,16 +187,16 @@ final class WaterDropView: NSView {
         let stretch = 1 + min(speed * 0.05, 0.6)
         let dotR = NotchTokens.Animation.waterDropDotRadius * scale
 
-        ctx.saveGState()
-        ctx.translateBy(x: pos.x, y: pos.y)
-        ctx.rotate(by: angle)
-        ctx.scaleBy(x: stretch, y: 1 / stretch)
-        drawDot(ctx, at: .zero, radius: dotR * 1.1, alpha: 1, glow: true)
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.translateBy(x: pos.x, y: pos.y)
+            ctx.rotate(by: angle)
+            ctx.scaleBy(x: stretch, y: 1 / stretch)
+            drawDot(ctx, at: .zero, radius: dotR * 1.1, alpha: 1, glow: true)
+        }
 
         // Trail
         flightTrail.insert(pos, at: 0)
-        if flightTrail.count > 18 { flightTrail.removeLast() }
+        if flightTrail.count > NotchTokens.Animation.waterDropFlightTrailLength { flightTrail.removeLast() }
         drawTrail(ctx, trail: flightTrail, maxAlpha: 0.45)
     }
 
@@ -136,31 +206,31 @@ final class WaterDropView: NSView {
         let sp = CGFloat(p)
 
         if impactBurst.isEmpty {
-            impactBurst = makeBurst(at: landPt, count: 14, speed: 3.0)
-            splashDroplets = makeSplash(at: landPt, count: 6)
+            impactBurst = makeBurst(at: landPt, count: NotchTokens.Animation.waterDropImpactBurstCount, speed: 3.0)
+            splashDroplets = makeSplash(at: landPt, count: NotchTokens.Animation.waterDropSplashCount)
         }
 
         let squishW = 1 + sp * 1.5
         let squishH = max(0.2, 1 - sp * 0.8)
         let dotR = NotchTokens.Animation.waterDropDotRadius * scale
 
-        ctx.saveGState()
-        ctx.translateBy(x: landPt.x, y: landPt.y)
-        ctx.scaleBy(x: squishW, y: squishH)
-        drawDot(ctx, at: .zero, radius: dotR, alpha: 1, glow: true)
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.translateBy(x: landPt.x, y: landPt.y)
+            ctx.scaleBy(x: squishW, y: squishH)
+            drawDot(ctx, at: .zero, radius: dotR, alpha: 1, glow: true)
+        }
 
         // Splash ring expanding outward
         let ringRadius = dotR * (1 + sp * 4)
         let ringAlpha = (1 - sp) * 0.5
-        ctx.saveGState()
-        ctx.setStrokeColor(colorWith(alpha: ringAlpha))
-        ctx.setLineWidth(2.0 * (1 - sp))
-        ctx.strokeEllipse(in: CGRect(
-            x: landPt.x - ringRadius, y: landPt.y - ringRadius,
-            width: ringRadius * 2, height: ringRadius * 2
-        ))
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.setStrokeColor(colorWith(alpha: ringAlpha))
+            ctx.setLineWidth(2.0 * (1 - sp))
+            ctx.strokeEllipse(in: CGRect(
+                x: landPt.x - ringRadius, y: landPt.y - ringRadius,
+                width: ringRadius * 2, height: ringRadius * 2
+            ))
+        }
     }
 
     // MARK: - Phase 3: Race
@@ -183,12 +253,22 @@ final class WaterDropView: NSView {
 
         // Create merge burst near end
         if rp > 0.95 && mergeBurst.isEmpty {
-            mergeBurst = makeBurst(at: meetPt, count: 14, speed: 2.5)
+            mergeBurst = makeBurst(at: meetPt, count: NotchTokens.Animation.waterDropMergeBurstCount, speed: 2.5)
         }
     }
 
     private func drawStream(_ ctx: CGContext, front: CGFloat, direction: CGFloat, raceProgress rp: CGFloat) {
-        let samples = 60
+        buildStreamGeometry(front: front, direction: direction, raceProgress: rp)
+        guard outerPoints.count >= 2 else { return }
+
+        drawStreamBody(ctx)
+        drawStreamHighlight(ctx)
+        drawSatelliteDroplets(ctx, front: front, direction: direction)
+    }
+
+    /// Populates `outerPoints` and `innerPoints` with samples along the stream path.
+    private func buildStreamGeometry(front: CGFloat, direction: CGFloat, raceProgress rp: CGFloat) {
+        let samples = NotchTokens.Animation.waterDropStreamSamples
         let streamLen = NotchTokens.Animation.waterDropStreamLength
         let baseThick = NotchTokens.Animation.waterDropStreamThickness * scale
 
@@ -201,12 +281,9 @@ final class WaterDropView: NSView {
             if bT < -0.01 { continue }
             let clampedT = max(0, bT)
 
-            let actualT: CGFloat
-            if direction > 0 {
-                actualT = clampedT
-            } else {
-                actualT = WaterDropAnimator.AnimationGeometry.wrap(-clampedT)
-            }
+            let actualT: CGFloat = direction > 0
+                ? clampedT
+                : WaterDropAnimator.AnimationGeometry.wrap(-clampedT)
 
             let p = geometry.pointOnBorder(at: actualT)
             var n = geometry.normalOnBorder(at: actualT)
@@ -224,64 +301,68 @@ final class WaterDropView: NSView {
             outerPoints.append(p)
             innerPoints.append(CGPoint(x: p.x + n.dx * finalThick, y: p.y + n.dy * finalThick))
         }
+    }
 
-        guard outerPoints.count >= 2 else { return }
-
+    /// Draws the filled liquid body and both edge strokes of the stream.
+    private func drawStreamBody(_ ctx: CGContext) {
         // Fill liquid body
-        ctx.saveGState()
-        ctx.beginPath()
-        ctx.move(to: outerPoints[0])
-        for i in 1..<outerPoints.count { ctx.addLine(to: outerPoints[i]) }
-        for i in stride(from: innerPoints.count - 1, through: 0, by: -1) { ctx.addLine(to: innerPoints[i]) }
-        ctx.closePath()
-        ctx.setFillColor(colorWith(alpha: 0.3))
-        ctx.fillPath()
-        ctx.restoreGState()
-
-        // Meniscus stroke (outer edge)
-        ctx.saveGState()
-        ctx.beginPath()
-        ctx.move(to: outerPoints[0])
-        for i in 1..<outerPoints.count { ctx.addLine(to: outerPoints[i]) }
-        ctx.setStrokeColor(colorWith(alpha: 0.7))
-        ctx.setLineWidth(1.5)
-        ctx.strokePath()
-        ctx.restoreGState()
-
-        // Inner edge stroke
-        ctx.saveGState()
-        ctx.beginPath()
-        ctx.move(to: innerPoints[0])
-        for i in 1..<innerPoints.count { ctx.addLine(to: innerPoints[i]) }
-        ctx.setStrokeColor(colorWith(alpha: 0.25))
-        ctx.setLineWidth(1.0)
-        ctx.strokePath()
-        ctx.restoreGState()
-
-        // Specular highlight near front
-        if outerPoints.count > 3 {
-            let sp = outerPoints[2]
-            let spI = innerPoints[2]
-            let hx = (sp.x + spI.x) / 2
-            let hy = (sp.y + spI.y) / 2
-            ctx.saveGState()
-            ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.4))
-            ctx.fillEllipse(in: CGRect(x: hx - 2, y: hy - 2, width: 4, height: 4))
-            ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.beginPath()
+            ctx.move(to: outerPoints[0])
+            for i in 1..<outerPoints.count { ctx.addLine(to: outerPoints[i]) }
+            for i in stride(from: innerPoints.count - 1, through: 0, by: -1) { ctx.addLine(to: innerPoints[i]) }
+            ctx.closePath()
+            ctx.setFillColor(colorWith(alpha: 0.3))
+            ctx.fillPath()
         }
 
-        // Trailing satellite droplets
+        // Meniscus stroke (outer edge)
+        ctx.withGState { ctx in
+            ctx.beginPath()
+            ctx.move(to: outerPoints[0])
+            for i in 1..<outerPoints.count { ctx.addLine(to: outerPoints[i]) }
+            ctx.setStrokeColor(colorWith(alpha: 0.7))
+            ctx.setLineWidth(1.5)
+            ctx.strokePath()
+        }
+
+        // Inner edge stroke
+        ctx.withGState { ctx in
+            ctx.beginPath()
+            ctx.move(to: innerPoints[0])
+            for i in 1..<innerPoints.count { ctx.addLine(to: innerPoints[i]) }
+            ctx.setStrokeColor(colorWith(alpha: 0.25))
+            ctx.setLineWidth(1.0)
+            ctx.strokePath()
+        }
+    }
+
+    /// Draws the specular highlight dot near the stream's leading edge.
+    private func drawStreamHighlight(_ ctx: CGContext) {
+        guard outerPoints.count > 3 else { return }
+        let sp = outerPoints[2]
+        let spI = innerPoints[2]
+        let hx = (sp.x + spI.x) / 2
+        let hy = (sp.y + spI.y) / 2
+        ctx.withGState { ctx in
+            ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.4))
+            ctx.fillEllipse(in: CGRect(x: hx - 2, y: hy - 2, width: 4, height: 4))
+        }
+    }
+
+    /// Draws the small trailing satellite droplets that follow the stream tail.
+    private func drawSatelliteDroplets(_ ctx: CGContext, front: CGFloat, direction: CGFloat) {
+        let streamLen = NotchTokens.Animation.waterDropStreamLength
+        let baseThick = NotchTokens.Animation.waterDropStreamThickness * scale
+
         for d in 0..<3 {
             let dropFrac = 0.7 + CGFloat(d) * 0.1
             let dropBorderT = front - dropFrac * streamLen
             if dropBorderT < 0 { continue }
 
-            let dropT: CGFloat
-            if direction > 0 {
-                dropT = dropBorderT
-            } else {
-                dropT = WaterDropAnimator.AnimationGeometry.wrap(-dropBorderT)
-            }
+            let dropT: CGFloat = direction > 0
+                ? dropBorderT
+                : WaterDropAnimator.AnimationGeometry.wrap(-dropBorderT)
 
             let dp = geometry.pointOnBorder(at: dropT)
             var dn = geometry.normalOnBorder(at: dropT)
@@ -291,10 +372,10 @@ final class WaterDropView: NSView {
             let ox = dp.x + dn.dx * (baseThick * 0.3)
             let oy = dp.y + dn.dy * (baseThick * 0.3)
 
-            ctx.saveGState()
-            ctx.setFillColor(colorWith(alpha: 0.4 * (1 - dropFrac)))
-            ctx.fillEllipse(in: CGRect(x: ox - dropSize, y: oy - dropSize, width: dropSize * 2, height: dropSize * 2))
-            ctx.restoreGState()
+            ctx.withGState { ctx in
+                ctx.setFillColor(colorWith(alpha: 0.4 * (1 - dropFrac)))
+                ctx.fillEllipse(in: CGRect(x: ox - dropSize, y: oy - dropSize, width: dropSize * 2, height: dropSize * 2))
+            }
         }
     }
 
@@ -302,7 +383,7 @@ final class WaterDropView: NSView {
 
     private func drawMerge(_ ctx: CGContext, progress p: Double, meetPt: CGPoint) {
         if mergeBurst.isEmpty {
-            mergeBurst = makeBurst(at: meetPt, count: 14, speed: 2.5)
+            mergeBurst = makeBurst(at: meetPt, count: NotchTokens.Animation.waterDropMergeBurstCount, speed: 2.5)
         }
 
         let mp = CGFloat(p)
@@ -327,15 +408,15 @@ final class WaterDropView: NSView {
         let size = dotR * (1 - rp * 0.4)
         let alpha = 1 - rp * 0.3
 
-        ctx.saveGState()
-        ctx.translateBy(x: pos.x, y: pos.y)
-        ctx.rotate(by: angle)
-        ctx.scaleBy(x: stretch, y: 1 / stretch)
-        drawDot(ctx, at: .zero, radius: size, alpha: alpha, glow: true)
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.translateBy(x: pos.x, y: pos.y)
+            ctx.rotate(by: angle)
+            ctx.scaleBy(x: stretch, y: 1 / stretch)
+            drawDot(ctx, at: .zero, radius: size, alpha: alpha, glow: true)
+        }
 
         returnTrail.insert(pos, at: 0)
-        if returnTrail.count > 12 { returnTrail.removeLast() }
+        if returnTrail.count > NotchTokens.Animation.waterDropReturnTrailLength { returnTrail.removeLast() }
         drawTrail(ctx, trail: returnTrail, maxAlpha: 0.35 * (1 - rp * 0.5))
     }
 
@@ -351,49 +432,51 @@ final class WaterDropView: NSView {
         let innerPath = CGPath(roundedRect: rect, cornerWidth: cr, cornerHeight: cr, transform: nil)
 
         // Outer glow (shadow-like)
-        ctx.saveGState()
-        ctx.addPath(path)
-        ctx.addPath(innerPath)
-        ctx.clip(using: .evenOdd)
-        ctx.setShadow(offset: .zero, blur: spread, color: colorWith(alpha: alpha))
-        ctx.setFillColor(colorWith(alpha: alpha))
-        ctx.addPath(innerPath)
-        ctx.fillPath()
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.addPath(path)
+            ctx.addPath(innerPath)
+            ctx.clip(using: .evenOdd)
+            ctx.setShadow(offset: .zero, blur: spread, color: colorWith(alpha: alpha))
+            ctx.setFillColor(colorWith(alpha: alpha))
+            ctx.addPath(innerPath)
+            ctx.fillPath()
+        }
 
         // Border stroke
-        ctx.saveGState()
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(colorWith(alpha: alpha * 0.8))
-        ctx.setLineWidth(1.5)
-        ctx.strokePath()
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.addPath(innerPath)
+            ctx.setStrokeColor(colorWith(alpha: alpha * 0.8))
+            ctx.setLineWidth(1.5)
+            ctx.strokePath()
+        }
     }
 
     // MARK: - Drawing Helpers
 
+    private static let sRGBColorSpace = CGColorSpaceCreateDeviceRGB()
+
     private func drawDot(_ ctx: CGContext, at pt: CGPoint, radius: CGFloat, alpha: CGFloat, glow: Bool) {
         if glow {
-            let glowR = radius * 5
+            let glowR = radius * NotchTokens.Animation.waterDropGlowRadiusMultiplier
             let colors = [colorWith(alpha: alpha * 0.5), colorWith(alpha: 0)] as CFArray
-            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
-                ctx.saveGState()
-                ctx.drawRadialGradient(gradient, startCenter: pt, startRadius: 0, endCenter: pt, endRadius: glowR, options: [])
-                ctx.restoreGState()
+            if let gradient = CGGradient(colorsSpace: WaterDropView.sRGBColorSpace, colors: colors, locations: [0, 1]) {
+                ctx.withGState { ctx in
+                    ctx.drawRadialGradient(gradient, startCenter: pt, startRadius: 0, endCenter: pt, endRadius: glowR, options: [])
+                }
             }
         }
-        ctx.saveGState()
-        ctx.setFillColor(colorWith(alpha: alpha))
-        ctx.fillEllipse(in: CGRect(x: pt.x - radius, y: pt.y - radius, width: radius * 2, height: radius * 2))
-        ctx.restoreGState()
+        ctx.withGState { ctx in
+            ctx.setFillColor(colorWith(alpha: alpha))
+            ctx.fillEllipse(in: CGRect(x: pt.x - radius, y: pt.y - radius, width: radius * 2, height: radius * 2))
+        }
     }
 
     private func drawGlow(_ ctx: CGContext, at pt: CGPoint, radius: CGFloat) {
         let colors = [colorWith(alpha: 0.5), colorWith(alpha: 0)] as CFArray
-        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) else { return }
-        ctx.saveGState()
-        ctx.drawRadialGradient(gradient, startCenter: pt, startRadius: 0, endCenter: pt, endRadius: radius, options: [])
-        ctx.restoreGState()
+        guard let gradient = CGGradient(colorsSpace: WaterDropView.sRGBColorSpace, colors: colors, locations: [0, 1]) else { return }
+        ctx.withGState { ctx in
+            ctx.drawRadialGradient(gradient, startCenter: pt, startRadius: 0, endCenter: pt, endRadius: radius, options: [])
+        }
     }
 
     private func drawTrail(_ ctx: CGContext, trail: [CGPoint], maxAlpha: CGFloat) {
@@ -401,10 +484,10 @@ final class WaterDropView: NSView {
         for (i, pt) in trail.enumerated() {
             let age = 1 - CGFloat(i) / CGFloat(trail.count)
             let r = dotR * 0.4 * age
-            ctx.saveGState()
-            ctx.setFillColor(colorWith(alpha: age * maxAlpha))
-            ctx.fillEllipse(in: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2))
-            ctx.restoreGState()
+            ctx.withGState { ctx in
+                ctx.setFillColor(colorWith(alpha: age * maxAlpha))
+                ctx.fillEllipse(in: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2))
+            }
         }
     }
 
@@ -427,7 +510,9 @@ final class WaterDropView: NSView {
             // Fan outward in a semicircle (upward-biased for a splash feel)
             let spread = CGFloat.pi * 0.8
             let baseAngle = -CGFloat.pi / 2 // upward
-            let angle = baseAngle - spread / 2 + (spread * CGFloat(i) / CGFloat(count - 1))
+            let angle = count > 1
+                ? baseAngle - spread / 2 + (spread * CGFloat(i) / CGFloat(count - 1))
+                : baseAngle
             let s: CGFloat = 2.5 + CGFloat.random(in: 0...2)
             return Particle(
                 x: center.x, y: center.y,
@@ -438,8 +523,8 @@ final class WaterDropView: NSView {
     }
 
     private func updateAndDrawBursts(_ ctx: CGContext) {
-        updateAndDrawBurst(ctx, particles: &impactBurst, decay: 0.04)
-        updateAndDrawBurst(ctx, particles: &mergeBurst, decay: 0.03)
+        updateAndDrawBurst(ctx, particles: &impactBurst, decay: NotchTokens.Animation.waterDropImpactBurstDecay)
+        updateAndDrawBurst(ctx, particles: &mergeBurst, decay: NotchTokens.Animation.waterDropMergeBurstDecay)
         updateAndDrawSplash(ctx)
     }
 
@@ -456,14 +541,14 @@ final class WaterDropView: NSView {
             let r = (3.5 + p.life * 2) * scale
             // Draw droplet with a slight glow
             let alpha = p.life * 0.8
-            ctx.saveGState()
-            ctx.setFillColor(colorWith(alpha: alpha))
-            ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
-            // Tiny white specular
-            let specR = r * 0.35
-            ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: alpha * 0.5))
-            ctx.fillEllipse(in: CGRect(x: p.x - specR * 0.5, y: p.y - r * 0.5, width: specR, height: specR))
-            ctx.restoreGState()
+            ctx.withGState { ctx in
+                ctx.setFillColor(colorWith(alpha: alpha))
+                ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+                // Tiny white specular
+                let specR = r * 0.35
+                ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: alpha * 0.5))
+                ctx.fillEllipse(in: CGRect(x: p.x - specR * 0.5, y: p.y - r * 0.5, width: specR, height: specR))
+            }
 
             return p
         }
@@ -479,10 +564,10 @@ final class WaterDropView: NSView {
             guard p.life > 0 else { return nil }
 
             let r = 2.5 * p.life * scale
-            ctx.saveGState()
-            ctx.setFillColor(colorWith(alpha: p.life))
-            ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
-            ctx.restoreGState()
+            ctx.withGState { ctx in
+                ctx.setFillColor(colorWith(alpha: p.life))
+                ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+            }
 
             return p
         }
@@ -499,3 +584,14 @@ final class WaterDropView: NSView {
     }
 }
 
+// MARK: - CGContext Graphics State Helper
+
+private extension CGContext {
+    /// Saves the current graphics state, executes `body`, then restores it.
+    /// Replaces paired `saveGState()` / `restoreGState()` calls for clarity.
+    func withGState(_ body: (CGContext) -> Void) {
+        saveGState()
+        body(self)
+        restoreGState()
+    }
+}

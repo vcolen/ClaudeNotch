@@ -64,6 +64,7 @@
 		A1B2C3D4000000CE /* NSAnimationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000034 /* NSAnimationHelper.swift */; };
 		A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000047 /* AnimationTokenTests.swift */; };
 		A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000048 /* WaterDropGeometryTests.swift */; };
+		A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000049 /* WaterDropAnimationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -140,6 +141,7 @@
 		A1B2C3D400000034 /* NSAnimationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSAnimationHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D400000047 /* AnimationTokenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTokenTests.swift; sourceTree = "<group>"; };
 		A1B2C3D400000048 /* WaterDropGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropGeometryTests.swift; sourceTree = "<group>"; };
+		A1B2C3D400000049 /* WaterDropAnimationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterDropAnimationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -283,6 +285,7 @@
 				A1B2C3D400000046 /* NotificationManagerTests.swift */,
 				A1B2C3D400000047 /* AnimationTokenTests.swift */,
 				A1B2C3D400000048 /* WaterDropGeometryTests.swift */,
+				A1B2C3D400000049 /* WaterDropAnimationTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -447,6 +450,7 @@
 				A1B2C3D4000000D6 /* NotificationManagerTests.swift in Sources */,
 				A1B2C3D4000000D7 /* AnimationTokenTests.swift in Sources */,
 				A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */,
+				A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

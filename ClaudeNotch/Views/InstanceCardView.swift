@@ -119,12 +119,10 @@ struct InstanceCardView: View {
             }
         }
         .onTapGesture {
-            // Press down
             withMotionAnimation(.easeOut(duration: 0.08), reduceMotion: reduceMotion) {
                 isPressed = true
             }
             onTap?(instance)
-            // Spring back after short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withMotionAnimation(.spring(response: 0.35, dampingFraction: 0.6), reduceMotion: reduceMotion) {
                     isPressed = false

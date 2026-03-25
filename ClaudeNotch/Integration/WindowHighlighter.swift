@@ -1,7 +1,10 @@
 import AppKit
+import os.log
 
 @MainActor
 enum WindowHighlighter {
+
+    private static let log = Logger(subsystem: "com.claudenotch", category: "WindowHighlighter")
 
     private static var activeWindow: NSWindow?
     private static var flashTask: Task<Void, Never>?
@@ -149,17 +152,29 @@ enum WindowHighlighter {
         guard let windowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
             kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
+        ) as? [[String: Any]] else {
+            log.error("CGWindowListCopyWindowInfo returned nil — Screen Recording permission may be missing")
+            return nil
+        }
 
         let itermWindows = windowList.filter {
             ($0[kCGWindowOwnerName as String] as? String) == "iTerm2"
         }
 
-        guard !itermWindows.isEmpty else { return nil }
+        guard !itermWindows.isEmpty else {
+            log.info("No iTerm2 windows found on screen while looking up TTY \"\(tty, privacy: .private)\"")
+            return nil
+        }
 
         // If only one iTerm window, return it directly
         if itermWindows.count == 1, let info = itermWindows.first {
             return snapshot(from: info)
+        }
+
+        // Multiple windows: validate TTY before AppleScript interpolation (fix injection vulnerability)
+        guard isValidTTY(tty) else {
+            log.error("TTY \"\(tty, privacy: .private)\" failed validation — falling back to frontmost iTerm window")
+            return frontmostiTermWindow()
         }
 
         // Multiple windows: use AppleScript to find which contains the TTY
@@ -176,28 +191,53 @@ enum WindowHighlighter {
           end repeat
         end tell
         """
-        if let script = NSAppleScript(source: source) {
-            var error: NSDictionary?
-            let result = script.executeAndReturnError(&error)
-            if error == nil {
-                let windowID = result.int32Value
-                if let info = itermWindows.first(where: {
-                    ($0[kCGWindowNumber as String] as? Int32) == windowID
-                }) {
-                    return snapshot(from: info)
-                }
-            }
+        guard let script = NSAppleScript(source: source) else {
+            log.error("Failed to compile AppleScript for TTY lookup — falling back to frontmost iTerm window")
+            return frontmostiTermWindow()
         }
 
+        var error: NSDictionary?
+        let result = script.executeAndReturnError(&error)
+        if let error {
+            log.error("AppleScript execution failed during TTY lookup: \(error, privacy: .public) — falling back to frontmost iTerm window")
+            return frontmostiTermWindow()
+        }
+
+        let windowID = result.int32Value
+        if let info = itermWindows.first(where: {
+            ($0[kCGWindowNumber as String] as? Int32) == windowID
+        }) {
+            return snapshot(from: info)
+        }
+
+        log.warning("AppleScript returned window ID \(windowID) which does not match any on-screen iTerm2 window — falling back to frontmost iTerm window")
         return frontmostiTermWindow()
     }
 
+    /// Returns true if `tty` matches the expected `/dev/ttysNNN` format.
+    /// Exposed as `internal` (not `private`) so tests can verify the validation logic.
+    nonisolated static func isValidTTY(_ tty: String) -> Bool {
+        let ttyPattern = #"^/dev/ttys\d+$"#
+        return tty.range(of: ttyPattern, options: .regularExpression) != nil
+    }
+
     private static func snapshot(from info: [String: Any]) -> ITermWindowSnapshot? {
-        guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
-              let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
-              let primaryHeight = NSScreen.screens.first?.frame.height,
-              let windowNumber = info[kCGWindowNumber as String] as? Int
-        else { return nil }
+        guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any] else {
+            log.error("Window info missing bounds dictionary (kCGWindowBounds)")
+            return nil
+        }
+        guard let cgBounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) else {
+            log.error("Unexpected window bounds format — could not deserialize CGRect")
+            return nil
+        }
+        guard let primaryHeight = NSScreen.screens.first?.frame.height else {
+            log.error("No screens available — cannot convert window coordinates")
+            return nil
+        }
+        guard let windowNumber = info[kCGWindowNumber as String] as? Int else {
+            log.error("Window info missing window number (kCGWindowNumber)")
+            return nil
+        }
 
         let frame = CGRect(
             x: cgBounds.origin.x,
