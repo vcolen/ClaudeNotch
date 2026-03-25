@@ -867,8 +867,8 @@ struct InstanceManagerTests {
         #expect(manager.instances["s1"] != nil)
     }
 
-    @Test("Stale instance gets removed by state file sync")
-    @MainActor func staleInstanceRemovedBySync() {
+    @Test("Stale instance survives state file sync if process alive")
+    @MainActor func staleInstanceSurvivesIfAlive() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -881,13 +881,28 @@ struct InstanceManagerTests {
         // Artificially age the instance past the stale threshold
         manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
 
-        // Sync with empty state file — stale instance should be removed
+        // Sync with empty state file — process is alive, should survive
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances["s1"] != nil)
+    }
+
+    @Test("Stale instance removed by state file sync if process dead")
+    @MainActor func staleInstanceRemovedIfDead() {
+        InstanceManager.testProcessAliveOverride = { _ in false }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let instance = ClaudeInstance(id: "s1", pid: 999, cwd: "/tmp/project", status: .working)
+        instance.updatedAt = Date().addingTimeInterval(-10)
+        manager.instances["s1"] = instance
+
+        // Sync with empty state file — process is dead, should be removed
         manager.sync(from: InstanceManager.StateFile(instances: [:]))
         #expect(manager.instances.isEmpty)
     }
 
-    @Test("Instance at exact stale boundary is removed")
-    @MainActor func instanceAtStaleBoundaryIsRemoved() {
+    @Test("Instance at exact stale boundary survives if process alive")
+    @MainActor func instanceAtStaleBoundarySurvivesIfAlive() {
         InstanceManager.testProcessAliveOverride = { _ in true }
         defer { InstanceManager.testProcessAliveOverride = nil }
 
@@ -900,7 +915,22 @@ struct InstanceManagerTests {
         manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-5)
 
         manager.sync(from: InstanceManager.StateFile(instances: [:]))
-        // At the boundary, instance should be removed (updatedAt is NOT > staleThreshold)
+        // Process is alive — instance should survive even if stale
+        #expect(manager.instances["s1"] != nil)
+    }
+
+    @Test("Instance at exact stale boundary is removed if process dead")
+    @MainActor func instanceAtStaleBoundaryRemovedIfDead() {
+        InstanceManager.testProcessAliveOverride = { _ in false }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        let instance = ClaudeInstance(id: "s1", pid: 999, cwd: "/tmp/project", status: .working)
+        instance.updatedAt = Date().addingTimeInterval(-5)
+        manager.instances["s1"] = instance
+
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        // Process is dead and stale — should be removed
         #expect(manager.instances.isEmpty)
     }
 
@@ -1190,9 +1220,11 @@ struct InstanceManagerTests {
         ))
         #expect(manager.instances["s1"]?.lastSocketEventAt != nil)
 
-        manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
-
-        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        // Remove via ended event (process-alive check doesn't apply to ended events)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "ended", tty: nil, tool: nil
+        ))
         #expect(manager.instances.isEmpty)
 
         let stateFile = InstanceManager.StateFile(instances: [
@@ -1354,5 +1386,103 @@ struct InstanceManagerTests {
         let instance = ClaudeInstance(id: "s1", pid: 100, cwd: "/tmp/test")
         #expect(instance.attentionSetAt == nil)
         #expect(TerminalFocusMonitor.isEligibleForClearing(instance, at: Date()))
+    }
+
+    // MARK: - Notification Status Mapping
+
+    @Test("Socket event 'notification' maps to .waitingInput")
+    @MainActor func notificationMapsToWaitingInput() {
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/test",
+            status: "notification", tty: nil, tool: nil
+        ))
+        #expect(manager.instances["s1"]?.status == .waitingInput)
+    }
+
+    // MARK: - Process-Alive Removal Guard
+
+    @Test("Alive process NOT removed even if missing from state file")
+    @MainActor func aliveProcessNotRemovedByStateFileSync() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 100, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        // Age the instance past the stale threshold
+        manager.instances["s1"]!.updatedAt = Date().addingTimeInterval(-10)
+
+        // Sync with empty state file — process is alive, should NOT be removed
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances["s1"] != nil)
+    }
+
+    @Test("Dead process removed when missing from state file")
+    @MainActor func deadProcessRemovedByStateFileSync() {
+        InstanceManager.testProcessAliveOverride = { _ in false }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        // Create instance via socket (bypass the state file alive check by creating directly)
+        let instance = ClaudeInstance(id: "s1", pid: 999, cwd: "/tmp/project", status: .working)
+        instance.updatedAt = Date().addingTimeInterval(-10)
+        manager.instances["s1"] = instance
+
+        // Sync with empty state file — process is dead, should be removed
+        manager.sync(from: InstanceManager.StateFile(instances: [:]))
+        #expect(manager.instances.isEmpty)
+    }
+
+    // MARK: - Process Scanner Integration
+
+    @Test("syncFromProcessScan creates instance for new process")
+    @MainActor func syncFromProcessScanCreatesNewInstance() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.syncFromProcessScan([
+            ProcessScanner.DiscoveredProcess(pid: 300, cwd: "/tmp/new-project"),
+        ])
+        #expect(manager.instances.count == 1)
+        let instance = manager.instances["ps-300"]
+        #expect(instance != nil)
+        #expect(instance?.pid == 300)
+        #expect(instance?.status == .idle)
+    }
+
+    @Test("syncFromProcessScan skips already-tracked PID")
+    @MainActor func syncFromProcessScanSkipsExistingPid() {
+        InstanceManager.testProcessAliveOverride = { _ in true }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.handleSocketEvent(.init(
+            sessionId: "s1", pid: 300, cwd: "/tmp/project",
+            status: "processing", tty: nil, tool: nil
+        ))
+        #expect(manager.instances.count == 1)
+
+        manager.syncFromProcessScan([
+            ProcessScanner.DiscoveredProcess(pid: 300, cwd: "/tmp/project"),
+        ])
+        // Should still be 1 — not duplicated
+        #expect(manager.instances.count == 1)
+        #expect(manager.instances["s1"] != nil)
+    }
+
+    @Test("syncFromProcessScan skips dead process")
+    @MainActor func syncFromProcessScanSkipsDeadProcess() {
+        InstanceManager.testProcessAliveOverride = { _ in false }
+        defer { InstanceManager.testProcessAliveOverride = nil }
+
+        let manager = InstanceManager(skipBootstrap: true)
+        manager.syncFromProcessScan([
+            ProcessScanner.DiscoveredProcess(pid: 400, cwd: "/tmp/dead-project"),
+        ])
+        #expect(manager.instances.isEmpty)
     }
 }
