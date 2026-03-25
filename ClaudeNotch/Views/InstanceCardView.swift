@@ -6,6 +6,7 @@ struct InstanceCardView: View {
 
     // Hover state managed inline because it drives overlay effects (status bleed, edge highlight) beyond the background fill that HoverHighlight provides.
     @State private var isHovered = false
+    @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -99,6 +100,18 @@ struct InstanceCardView: View {
                     .allowsHitTesting(false)
             }
         }
+        .overlay {
+            // Status color glow flash on tap
+            if isPressed {
+                RoundedRectangle(cornerRadius: NotchTokens.Size.cardCornerRadius, style: .continuous)
+                    .fill(instance.displayColor.opacity(0.15))
+                    .allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: NotchTokens.Size.cardCornerRadius, style: .continuous)
+                    .stroke(instance.displayColor.opacity(0.4), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .scaleEffect(isPressed ? 0.96 : 1.0)
         .contentShape(Rectangle())
         .onHover { hovering in
             withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
@@ -106,7 +119,17 @@ struct InstanceCardView: View {
             }
         }
         .onTapGesture {
+            // Press down
+            withMotionAnimation(.easeOut(duration: 0.08), reduceMotion: reduceMotion) {
+                isPressed = true
+            }
             onTap?(instance)
+            // Spring back after short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withMotionAnimation(.spring(response: 0.35, dampingFraction: 0.6), reduceMotion: reduceMotion) {
+                    isPressed = false
+                }
+            }
         }
     }
 
