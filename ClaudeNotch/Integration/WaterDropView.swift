@@ -26,6 +26,7 @@ final class WaterDropView: NSView {
     // Burst particles
     private var impactBurst: [Particle] = []
     private var mergeBurst: [Particle] = []
+    private var splashDroplets: [Particle] = []
 
     private struct Particle {
         var x, y, vx, vy, life: CGFloat
@@ -135,17 +136,30 @@ final class WaterDropView: NSView {
         let sp = CGFloat(p)
 
         if impactBurst.isEmpty {
-            impactBurst = makeBurst(at: landPt, count: 8, speed: 1.5)
+            impactBurst = makeBurst(at: landPt, count: 14, speed: 3.0)
+            splashDroplets = makeSplash(at: landPt, count: 6)
         }
 
-        let squishW = 1 + sp * 1.2
-        let squishH = max(0.3, 1 - sp * 0.7)
+        let squishW = 1 + sp * 1.5
+        let squishH = max(0.2, 1 - sp * 0.8)
         let dotR = NotchTokens.Animation.waterDropDotRadius * scale
 
         ctx.saveGState()
         ctx.translateBy(x: landPt.x, y: landPt.y)
         ctx.scaleBy(x: squishW, y: squishH)
         drawDot(ctx, at: .zero, radius: dotR, alpha: 1, glow: true)
+        ctx.restoreGState()
+
+        // Splash ring expanding outward
+        let ringRadius = dotR * (1 + sp * 4)
+        let ringAlpha = (1 - sp) * 0.5
+        ctx.saveGState()
+        ctx.setStrokeColor(colorWith(alpha: ringAlpha))
+        ctx.setLineWidth(2.0 * (1 - sp))
+        ctx.strokeEllipse(in: CGRect(
+            x: landPt.x - ringRadius, y: landPt.y - ringRadius,
+            width: ringRadius * 2, height: ringRadius * 2
+        ))
         ctx.restoreGState()
     }
 
@@ -408,9 +422,51 @@ final class WaterDropView: NSView {
         }
     }
 
+    private func makeSplash(at center: CGPoint, count: Int) -> [Particle] {
+        (0..<count).map { i in
+            // Fan outward in a semicircle (upward-biased for a splash feel)
+            let spread = CGFloat.pi * 0.8
+            let baseAngle = -CGFloat.pi / 2 // upward
+            let angle = baseAngle - spread / 2 + (spread * CGFloat(i) / CGFloat(count - 1))
+            let s: CGFloat = 2.5 + CGFloat.random(in: 0...2)
+            return Particle(
+                x: center.x, y: center.y,
+                vx: cos(angle) * s, vy: sin(angle) * s,
+                life: 1
+            )
+        }
+    }
+
     private func updateAndDrawBursts(_ ctx: CGContext) {
         updateAndDrawBurst(ctx, particles: &impactBurst, decay: 0.04)
         updateAndDrawBurst(ctx, particles: &mergeBurst, decay: 0.03)
+        updateAndDrawSplash(ctx)
+    }
+
+    private func updateAndDrawSplash(_ ctx: CGContext) {
+        splashDroplets = splashDroplets.compactMap { p in
+            var p = p
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.08 // heavier gravity for arc
+            p.vx *= 0.98 // slight drag
+            p.life -= 0.025
+            guard p.life > 0 else { return nil }
+
+            let r = (3.5 + p.life * 2) * scale
+            // Draw droplet with a slight glow
+            let alpha = p.life * 0.8
+            ctx.saveGState()
+            ctx.setFillColor(colorWith(alpha: alpha))
+            ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+            // Tiny white specular
+            let specR = r * 0.35
+            ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: alpha * 0.5))
+            ctx.fillEllipse(in: CGRect(x: p.x - specR * 0.5, y: p.y - r * 0.5, width: specR, height: specR))
+            ctx.restoreGState()
+
+            return p
+        }
     }
 
     private func updateAndDrawBurst(_ ctx: CGContext, particles: inout [Particle], decay: CGFloat) {

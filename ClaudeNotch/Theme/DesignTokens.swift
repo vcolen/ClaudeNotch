@@ -80,7 +80,7 @@ enum NotchTokens {
         static let waterDropReturnDur: Double = 0.50
         static let waterDropStreamThickness: CGFloat = 6
         static let waterDropStreamLength: CGFloat = 0.10
-        static let waterDropDotRadius: CGFloat = 5
+        static let waterDropDotRadius: CGFloat = 8
         static let terminalCornerRadius: CGFloat = 10
 
         /// Returns a stagger delay for the given index. The total spread across all items is distributed within 250ms.
