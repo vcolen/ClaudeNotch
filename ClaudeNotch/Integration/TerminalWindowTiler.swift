@@ -215,6 +215,12 @@ final class TerminalWindowTiler {
     func tidy() {
         guard !isAnimating, let screen else { return }
 
+        if !Self.isAccessibilityTrusted {
+            NSLog("TerminalWindowTiler: AXTrusted=0, requesting accessibility permission")
+            Self.requestAccessibility()
+            return
+        }
+
         let windows = discoverWindows(on: screen)
         let count = min(windows.count, 10)
         NSLog("TerminalWindowTiler: tidy() found %d terminal windows, AXTrusted=%d", count, Self.isAccessibilityTrusted ? 1 : 0)
