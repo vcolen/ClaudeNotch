@@ -59,11 +59,12 @@ Uses `CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)` to enume
 - Not minimized (on-screen only filter handles this)
 - Same screen as the notch panel (compare window origin against `NSScreen.frame`)
 
-Returns an array of discovered windows, each containing: `CGWindowID`, owner PID, current bounds, window title.
+Returns an array of discovered windows, each containing: `CGWindowID`, owner PID, current bounds.
 
 ### Screen Geometry
 
-- Query `NSScreen.main?.visibleFrame` for the usable area (excludes menu bar and Dock)
+- The tiler receives the `NSScreen` from its owning `NotchPanelController` (not `NSScreen.main`, which would be wrong on secondary monitors)
+- Query that screen's `visibleFrame` for the usable area (excludes menu bar and Dock)
 - Inset by 12px on all edges for macOS-style gaps
 - 12px gap between adjacent windows
 
@@ -74,7 +75,7 @@ Given a layout definition (e.g., `[3, 4]`) and the usable screen rect:
 1. Divide height equally among rows, minus inter-row gaps
 2. For each row, divide width equally among windows in that row, minus inter-column gaps
 3. Compute each window's target `CGRect`
-4. Note: CGWindowList uses top-left origin coords; `AXUIElement` position also uses top-left origin — no coordinate flip needed between them
+4. **Coordinate conversion required:** `NSScreen.visibleFrame` uses AppKit's bottom-left origin. CGWindowList and AXUIElement both use top-left origin. Convert `visibleFrame` to top-left origin before computing target rects: `topLeftY = NSScreen.frame.height - visibleFrame.origin.y - visibleFrame.height`
 
 ### Window Positioning
 
@@ -91,9 +92,10 @@ The Accessibility API sets positions instantly. To achieve smooth animation:
 
 1. Capture each window's current frame from CGWindowList
 2. Compute target frames from the layout engine
-3. Use a display-link timer (or `NSAnimationHelper` pattern from the existing codebase) to interpolate over ~300ms
+3. Use a `CVDisplayLink` timer (same pattern as `WaterDropAnimator.swift`) to interpolate over ~300ms. Note: `NSAnimationHelper` cannot drive AXUIElement attributes — manual interpolation via display link is required.
 4. On each tick, compute intermediate position/size and set via AXUIElement
-5. Use ease-in-out timing curve (same `CAMediaTimingFunction` pattern as existing animations)
+5. Use ease-in-out timing curve
+6. If animation stutters due to AXUIElement IPC overhead with many windows, fall back to instant repositioning as an acceptable degradation
 
 ### Permission Handling
 
@@ -116,7 +118,7 @@ On first call to `tidy()`:
 ### Edge Cases
 
 - **0 terminal windows**: `canTidy` returns false, button appears disabled
-- **>10 terminal windows**: tile the first 10 (ordered by CGWindowList order), leave the rest untouched
+- **>10 terminal windows**: tile the first 10 (ordered by CGWindowList front-to-back z-order), leave the rest untouched
 - **Windows on different screens**: only tile windows whose origin falls within the same `NSScreen` as the notch panel
 - **Minimized windows**: already excluded by `.optionOnScreenOnly` filter
 
@@ -124,7 +126,7 @@ On first call to `tidy()`:
 
 ### ExpandedNotchView
 
-Add a tidy button (grid icon, e.g., `square.grid.2x2`) to the header row, right-aligned. Styled to match existing header controls using `DesignTokens`.
+The current `ExpandedNotchView` has no header row — it is a flat `VStack` with the instance list, separator, and "New Instance" button. Add a new header `HStack` at the top of the `VStack` containing the tidy button (grid icon, e.g., `square.grid.2x2`), right-aligned. Styled using `NotchTokens` (the project's design token namespace).
 
 - Enabled state: normal opacity, clickable
 - Disabled state: 0.3 opacity when `!tiler.canTidy`
