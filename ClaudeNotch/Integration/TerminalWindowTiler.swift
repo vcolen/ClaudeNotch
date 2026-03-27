@@ -215,13 +215,9 @@ final class TerminalWindowTiler {
     func tidy() {
         guard !isAnimating, let screen else { return }
 
-        if !Self.isAccessibilityTrusted {
-            Self.requestAccessibility()
-            return
-        }
-
         let windows = discoverWindows(on: screen)
         let count = min(windows.count, 10)
+        NSLog("TerminalWindowTiler: tidy() found %d terminal windows, AXTrusted=%d", count, Self.isAccessibilityTrusted ? 1 : 0)
         guard count > 0 else { return }
 
         // Reset cycling if window count changed
@@ -246,8 +242,10 @@ final class TerminalWindowTiler {
 
         // Resolve AX elements ONCE before animation starts.
         let resolved = Self.resolveAXWindows(tilableWindows)
-        guard resolved.count == count else {
-            // Fallback: couldn't resolve all windows, snap instantly
+        NSLog("TerminalWindowTiler: resolved %d/%d AX windows", resolved.count, count)
+        guard !resolved.isEmpty else { return }
+        if resolved.count < count {
+            // Partial resolve: snap the ones we got
             for (i, pair) in resolved.enumerated() where i < targetFrames.count {
                 Self.setWindowFrame(targetFrames[i], axElement: pair.axElement)
             }
