@@ -45,8 +45,8 @@ struct ExpandedNotchView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(
                         tiler?.canTidy == true
-                            ? (isTidyHovered ? 0.7 : 0.45)
-                            : 0.15
+                            ? (isTidyHovered ? 0.8 : 0.5)
+                            : 0.3
                     ))
                     .frame(width: 28, height: 28)
                     .background(
