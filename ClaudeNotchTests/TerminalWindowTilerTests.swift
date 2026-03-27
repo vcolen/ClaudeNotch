@@ -195,3 +195,27 @@ struct TilerWindowFilterTests {
         #expect(info == nil)
     }
 }
+
+@Suite("TerminalWindowTiler Cycling")
+struct TilerCyclingTests {
+
+    @Test("nextLayoutIndex wraps around")
+    func wrapsAround() {
+        // 7 windows has 3 layouts: [3,4], [4,3], [3,2,2]
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 0, forCount: 7) == 1)
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 1, forCount: 7) == 2)
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 2, forCount: 7) == 0)
+    }
+
+    @Test("nextLayoutIndex for single layout stays at 0")
+    func singleLayout() {
+        // 1 window has 1 layout: [1]
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 0, forCount: 1) == 0)
+    }
+
+    @Test("Accessibility permission check returns bool")
+    func permissionCheck() {
+        // Just verifies the function exists and returns a Bool
+        let _ = TerminalWindowTiler.isAccessibilityTrusted
+    }
+}

@@ -1,8 +1,20 @@
 import Cocoa
-import ApplicationServices
+@preconcurrency import ApplicationServices
+import QuartzCore
 
 @Observable
 final class TerminalWindowTiler {
+
+    // MARK: - State
+
+    var lastWindowCount = 0
+    var currentLayoutIndex = 0
+    var isAnimating = false
+    private weak var screen: NSScreen?
+
+    init(screen: NSScreen) {
+        self.screen = screen
+    }
 
     // MARK: - Layout Table
 
@@ -170,5 +182,124 @@ final class TerminalWindowTiler {
               let sizeVal = AXValueCreate(.cgSize, &newSize) else { return }
         AXUIElementSetAttributeValue(axElement, kAXSizeAttribute as CFString, sizeVal)
         AXUIElementSetAttributeValue(axElement, kAXPositionAttribute as CFString, posVal)
+    }
+
+    // MARK: - Permission
+
+    static var isAccessibilityTrusted: Bool {
+        AXIsProcessTrusted()
+    }
+
+    static func requestAccessibility() {
+        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
+        let options = [key: true] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
+    }
+
+    var canTidy: Bool {
+        Self.isAccessibilityTrusted
+    }
+
+    // MARK: - Cycling
+
+    static func nextLayoutIndex(current: Int, forCount windowCount: Int) -> Int {
+        let layouts = Self.layouts(for: windowCount)
+        guard layouts.count > 1 else { return 0 }
+        return (current + 1) % layouts.count
+    }
+
+    // MARK: - Tidy
+
+    private static let gap: CGFloat = 12
+
+    func tidy() {
+        guard !isAnimating, let screen else { return }
+
+        if !Self.isAccessibilityTrusted {
+            Self.requestAccessibility()
+            return
+        }
+
+        let windows = discoverWindows(on: screen)
+        let count = min(windows.count, 10)
+        guard count > 0 else { return }
+
+        // Reset cycling if window count changed
+        if count != lastWindowCount {
+            currentLayoutIndex = 0
+            lastWindowCount = count
+        } else {
+            currentLayoutIndex = Self.nextLayoutIndex(current: currentLayoutIndex, forCount: count)
+        }
+
+        let layouts = Self.layouts(for: count)
+        guard currentLayoutIndex < layouts.count else { return }
+        let layout = layouts[currentLayoutIndex]
+
+        let usableRect = Self.visibleFrameInTopLeft(screen: screen)
+        let insetRect = usableRect.insetBy(dx: Self.gap, dy: Self.gap)
+        let targetFrames = Self.computeFrames(layout: layout, in: insetRect, gap: Self.gap)
+
+        guard targetFrames.count == count else { return }
+
+        let tilableWindows = Array(windows.prefix(count))
+
+        // Resolve AX elements ONCE before animation starts.
+        let resolved = Self.resolveAXWindows(tilableWindows)
+        guard resolved.count == count else {
+            // Fallback: couldn't resolve all windows, snap instantly
+            for (i, pair) in resolved.enumerated() where i < targetFrames.count {
+                Self.setWindowFrame(targetFrames[i], axElement: pair.axElement)
+            }
+            return
+        }
+        animateWindows(resolved, to: targetFrames)
+    }
+
+    // MARK: - Animation
+
+    private func animateWindows(_ resolved: [(info: WindowInfo, axElement: AXUIElement)], to targets: [CGRect]) {
+        isAnimating = true
+        let startFrames = resolved.map(\.info.bounds)
+        let duration: Double = 0.3
+        let startTime = CACurrentMediaTime()
+
+        @Sendable func ease(_ t: Double) -> Double {
+            t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+        }
+
+        @Sendable func interpolate(_ from: CGRect, _ to: CGRect, _ t: Double) -> CGRect {
+            let et = ease(t)
+            return CGRect(
+                x: from.origin.x + (to.origin.x - from.origin.x) * et,
+                y: from.origin.y + (to.origin.y - from.origin.y) * et,
+                width: from.width + (to.width - from.width) * et,
+                height: from.height + (to.height - from.height) * et
+            )
+        }
+
+        // nonisolated(unsafe) to satisfy Sendable requirements for the timer closure.
+        // Safe because the timer fires on the main RunLoop.
+        nonisolated(unsafe) let resolvedUnsafe = resolved
+        nonisolated(unsafe) let selfUnsafe = self
+
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { timer in
+            let elapsed = CACurrentMediaTime() - startTime
+            let progress = min(elapsed / duration, 1.0)
+
+            for (i, pair) in resolvedUnsafe.enumerated() {
+                let frame = interpolate(startFrames[i], targets[i], progress)
+                TerminalWindowTiler.setWindowFrame(frame, axElement: pair.axElement)
+            }
+
+            if progress >= 1.0 {
+                timer.invalidate()
+                for (i, pair) in resolvedUnsafe.enumerated() {
+                    TerminalWindowTiler.setWindowFrame(targets[i], axElement: pair.axElement)
+                }
+                selfUnsafe.isAnimating = false
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
     }
 }
