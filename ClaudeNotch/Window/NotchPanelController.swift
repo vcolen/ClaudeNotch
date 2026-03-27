@@ -11,6 +11,7 @@ final class NotchPanelController {
     let notificationManager: NotificationManager
 
     private let expandedWidth: CGFloat = 340
+    private var tiler: TerminalWindowTiler?
     private var observationTask: Task<Void, Never>?
     private var selectionAnimationTask: Task<Void, Never>?
 
@@ -65,10 +66,14 @@ final class NotchPanelController {
             }
         }
 
+        let tiler = TerminalWindowTiler(screen: self.screen)
+        self.tiler = tiler
+
         let notchView = NotchView(
             instanceManager: instanceManager,
             panelState: panelState,
             notificationManager: notificationManager,
+            tiler: tiler,
             onNewInstance: {
                 let panel = NSOpenPanel()
                 panel.canChooseDirectories = true
