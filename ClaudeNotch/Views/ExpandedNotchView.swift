@@ -35,6 +35,11 @@ struct ExpandedNotchView: View {
         }
     }
 
+    private var tidyButtonOpacity: Double {
+        guard tiler?.canTidy == true else { return 0.3 }
+        return isTidyHovered ? 0.8 : 0.5
+    }
+
     private var header: some View {
         HStack {
             Spacer()
@@ -43,11 +48,7 @@ struct ExpandedNotchView: View {
             } label: {
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(
-                        tiler?.canTidy == true
-                            ? (isTidyHovered ? 0.8 : 0.5)
-                            : 0.3
-                    ))
+                    .foregroundStyle(.white.opacity(tidyButtonOpacity))
                     .frame(width: 28, height: 28)
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)

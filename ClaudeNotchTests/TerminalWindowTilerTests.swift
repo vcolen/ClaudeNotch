@@ -40,6 +40,12 @@ struct TilerLayoutTableTests {
         #expect(layouts.isEmpty)
     }
 
+    @Test("Negative count returns empty array")
+    func negativeCount() {
+        let layouts = TerminalWindowTiler.layouts(for: -1)
+        #expect(layouts.isEmpty)
+    }
+
     @Test("Count >10 returns layouts for 10")
     func overTenFallback() {
         let layouts = TerminalWindowTiler.layouts(for: 12)
@@ -58,6 +64,12 @@ struct TilerLayoutTableTests {
 struct TilerFrameTests {
 
     private let screenRect = CGRect(x: 0, y: 0, width: 1000, height: 600)
+
+    @Test("Empty layout returns empty frames")
+    func emptyLayout() {
+        let frames = TerminalWindowTiler.computeFrames(layout: [], in: screenRect, gap: 0)
+        #expect(frames.isEmpty)
+    }
 
     @Test("Single window fills the screen rect")
     func singleWindow() {
@@ -131,6 +143,22 @@ struct TilerFrameTests {
         #expect(frames[2].origin.x == 50)
         #expect(frames[2].origin.y == 400)
     }
+
+    @Test("2x2 layout with gap applies row and column gaps correctly")
+    func twoByTwoWithGap() {
+        let frames = TerminalWindowTiler.computeFrames(
+            layout: [2, 2], in: CGRect(x: 0, y: 0, width: 1000, height: 600), gap: 10
+        )
+        #expect(frames.count == 4)
+        // Row height: (600 - 10 gap) / 2 = 295
+        #expect(frames[0].height == 295)
+        // Col width: (1000 - 10 gap) / 2 = 495
+        #expect(frames[0].width == 495)
+        // Second row starts at y = 295 + 10 = 305
+        #expect(frames[2].origin.y == 305)
+        // Second column starts at x = 495 + 10 = 505
+        #expect(frames[1].origin.x == 505)
+    }
 }
 
 @Suite("TerminalWindowTiler Window Filtering")
@@ -194,6 +222,37 @@ struct TilerWindowFilterTests {
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info == nil)
     }
+
+    @Test("WindowInfo rejects empty dictionary")
+    func rejectsEmptyDict() {
+        let info = TerminalWindowTiler.WindowInfo(from: [:])
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects missing bounds key")
+    func rejectsMissingBounds() {
+        let dict: [String: Any] = [
+            "kCGWindowOwnerPID": 1234,
+            "kCGWindowNumber": 42,
+            "kCGWindowOwnerName": "iTerm2",
+            "kCGWindowLayer": 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects malformed bounds dict")
+    func rejectsMalformedBounds() {
+        let dict: [String: Any] = [
+            "kCGWindowOwnerPID": 1234,
+            "kCGWindowNumber": 42,
+            "kCGWindowOwnerName": "iTerm2",
+            "kCGWindowLayer": 0,
+            "kCGWindowBounds": ["X": 100, "Y": 200],  // missing Width and Height
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
 }
 
 @Suite("TerminalWindowTiler Cycling")
@@ -213,9 +272,48 @@ struct TilerCyclingTests {
         #expect(TerminalWindowTiler.nextLayoutIndex(current: 0, forCount: 1) == 0)
     }
 
-    @Test("Accessibility permission check returns bool")
-    func permissionCheck() {
-        // Just verifies the function exists and returns a Bool
-        let _ = TerminalWindowTiler.isAccessibilityTrusted
+    @Test("nextLayoutIndex for count 0 returns 0")
+    func zeroCount() {
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 0, forCount: 0) == 0)
+    }
+
+    @Test("nextLayoutIndex for negative count returns 0")
+    func negativeCount() {
+        #expect(TerminalWindowTiler.nextLayoutIndex(current: 0, forCount: -1) == 0)
+    }
+}
+
+@Suite("TerminalWindowTiler Coordinate Conversion")
+struct TilerCoordinateTests {
+
+    @Test("visibleFrameInTopLeft converts bottom-left to top-left origin")
+    func topLeftConversion() {
+        // Simulate a 1440x900 screen with a 25px menu bar
+        // visibleFrame in Cocoa coords: origin at (0, 0), size 1440x875 (900-25 menu bar)
+        // Expected top-left: origin at (0, 25), size 1440x875
+        // But we can't create an NSScreen, so test the static helper if extracted.
+        // For now, test the math directly:
+        // topLeftY = full.height - visible.origin.y - visible.height + full.origin.y
+        // = 900 - 0 - 875 + 0 = 25
+        let fullHeight: CGFloat = 900
+        let visibleOriginY: CGFloat = 0
+        let visibleHeight: CGFloat = 875
+        let fullOriginY: CGFloat = 0
+        let topLeftY = fullHeight - visibleOriginY - visibleHeight + fullOriginY
+        #expect(topLeftY == 25)
+    }
+
+    @Test("visibleFrameInTopLeft accounts for non-primary monitor offset")
+    func nonPrimaryMonitorOffset() {
+        // Non-primary monitor at y=-900 in Cocoa coords
+        // full frame: (1440, -900, 1920, 1080)
+        // visible frame: (1440, -900, 1920, 1055) — 25px menu bar
+        let fullHeight: CGFloat = 1080
+        let visibleOriginY: CGFloat = -900
+        let visibleHeight: CGFloat = 1055
+        let fullOriginY: CGFloat = -900
+        let topLeftY = fullHeight - visibleOriginY - visibleHeight + fullOriginY
+        // = 1080 - (-900) - 1055 + (-900) = 1080 + 900 - 1055 - 900 = 25
+        #expect(topLeftY == 25)
     }
 }

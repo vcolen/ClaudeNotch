@@ -234,6 +234,7 @@ final class NotchPanelController {
             )
         }
 
+        tiler?.updateScreen(newScreen)
         animateFrameUpdate()
     }
 
