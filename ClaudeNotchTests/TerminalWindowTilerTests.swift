@@ -132,3 +132,66 @@ struct TilerFrameTests {
         #expect(frames[2].origin.y == 400)
     }
 }
+
+@Suite("TerminalWindowTiler Window Filtering")
+struct TilerWindowFilterTests {
+
+    @Test("isTerminalApp matches iTerm2")
+    func matchesiTerm() {
+        #expect(TerminalWindowTiler.isTerminalApp("iTerm2"))
+    }
+
+    @Test("isTerminalApp matches Terminal")
+    func matchesTerminal() {
+        #expect(TerminalWindowTiler.isTerminalApp("Terminal"))
+    }
+
+    @Test("isTerminalApp rejects other apps")
+    func rejectsOther() {
+        #expect(!TerminalWindowTiler.isTerminalApp("Safari"))
+        #expect(!TerminalWindowTiler.isTerminalApp("Finder"))
+        #expect(!TerminalWindowTiler.isTerminalApp(""))
+    }
+
+    @Test("WindowInfo initializes from valid dictionary")
+    func validDictInit() {
+        let dict: [String: Any] = [
+            "kCGWindowOwnerPID": 1234,
+            "kCGWindowNumber": 42,
+            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            "kCGWindowOwnerName": "iTerm2",
+            "kCGWindowLayer": 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info != nil)
+        #expect(info?.pid == 1234)
+        #expect(info?.windowID == 42)
+        #expect(info?.bounds == CGRect(x: 100, y: 200, width: 800, height: 600))
+    }
+
+    @Test("WindowInfo rejects non-zero layer")
+    func rejectsNonZeroLayer() {
+        let dict: [String: Any] = [
+            "kCGWindowOwnerPID": 1234,
+            "kCGWindowNumber": 42,
+            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            "kCGWindowOwnerName": "iTerm2",
+            "kCGWindowLayer": 1,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects non-terminal apps")
+    func rejectsNonTerminal() {
+        let dict: [String: Any] = [
+            "kCGWindowOwnerPID": 1234,
+            "kCGWindowNumber": 42,
+            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            "kCGWindowOwnerName": "Safari",
+            "kCGWindowLayer": 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+}

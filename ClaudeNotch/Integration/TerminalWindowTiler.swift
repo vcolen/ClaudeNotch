@@ -65,4 +65,110 @@ final class TerminalWindowTiler {
             height: visible.height
         )
     }
+
+    // MARK: - Window Discovery
+
+    private static let terminalAppNames: Set<String> = ["iTerm2", "Terminal"]
+
+    static func isTerminalApp(_ name: String) -> Bool {
+        terminalAppNames.contains(name)
+    }
+
+    struct WindowInfo {
+        let pid: pid_t
+        let windowID: CGWindowID
+        let bounds: CGRect
+
+        init?(from dict: [String: Any]) {
+            guard
+                let ownerName = dict["kCGWindowOwnerName" as String] as? String,
+                TerminalWindowTiler.isTerminalApp(ownerName),
+                let layer = dict["kCGWindowLayer" as String] as? Int, layer == 0,
+                let pid = dict["kCGWindowOwnerPID" as String] as? Int,
+                let windowID = dict["kCGWindowNumber" as String] as? Int,
+                let boundsDict = dict["kCGWindowBounds" as String] as? [String: Any],
+                let x = (boundsDict["X"] as? NSNumber)?.doubleValue,
+                let y = (boundsDict["Y"] as? NSNumber)?.doubleValue,
+                let w = (boundsDict["Width"] as? NSNumber)?.doubleValue,
+                let h = (boundsDict["Height"] as? NSNumber)?.doubleValue
+            else { return nil }
+
+            self.pid = pid_t(pid)
+            self.windowID = CGWindowID(windowID)
+            self.bounds = CGRect(x: x, y: y, width: w, height: h)
+        }
+    }
+
+    /// Discover all on-screen terminal windows on the given screen.
+    func discoverWindows(on screen: NSScreen) -> [WindowInfo] {
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return [] }
+
+        let screenFrame = screen.frame
+        // Convert screen frame to top-left origin for comparison with CGWindowList bounds
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? screenFrame.height
+        let screenTopLeftY = primaryHeight - screenFrame.maxY
+        let screenRectTopLeft = CGRect(
+            x: screenFrame.origin.x,
+            y: screenTopLeftY,
+            width: screenFrame.width,
+            height: screenFrame.height
+        )
+
+        return windowList.compactMap { WindowInfo(from: $0) }
+            .filter { screenRectTopLeft.contains(CGPoint(x: $0.bounds.midX, y: $0.bounds.midY)) }
+    }
+
+    // MARK: - AX Positioning
+
+    /// Resolve AXUIElement references for windows before animation starts.
+    /// This avoids re-matching by bounds on every animation tick (which would break
+    /// after the first tick moves the window away from its original position).
+    static func resolveAXWindows(_ windows: [WindowInfo]) -> [(info: WindowInfo, axElement: AXUIElement)] {
+        var results: [(WindowInfo, AXUIElement)] = []
+        // Group by PID to avoid creating duplicate AX app references
+        let byPID = Dictionary(grouping: windows, by: \.pid)
+        for (pid, pidWindows) in byPID {
+            let app = AXUIElementCreateApplication(pid)
+            var windowsRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+                  let axWindows = windowsRef as? [AXUIElement] else { continue }
+
+            for windowInfo in pidWindows {
+                for axWindow in axWindows {
+                    var posRef: CFTypeRef?
+                    var sizeRef: CFTypeRef?
+                    guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &posRef) == .success,
+                          AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success
+                    else { continue }
+
+                    var pos = CGPoint.zero
+                    var size = CGSize.zero
+                    AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
+                    AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+
+                    if abs(pos.x - windowInfo.bounds.origin.x) < 2
+                        && abs(pos.y - windowInfo.bounds.origin.y) < 2
+                        && abs(size.width - windowInfo.bounds.width) < 2
+                        && abs(size.height - windowInfo.bounds.height) < 2 {
+                        results.append((windowInfo, axWindow))
+                        break
+                    }
+                }
+            }
+        }
+        return results
+    }
+
+    /// Move and resize a resolved AX window element.
+    static func setWindowFrame(_ target: CGRect, axElement: AXUIElement) {
+        var newPos = target.origin
+        var newSize = target.size
+        guard let posVal = AXValueCreate(.cgPoint, &newPos),
+              let sizeVal = AXValueCreate(.cgSize, &newSize) else { return }
+        AXUIElementSetAttributeValue(axElement, kAXSizeAttribute as CFString, sizeVal)
+        AXUIElementSetAttributeValue(axElement, kAXPositionAttribute as CFString, posVal)
+    }
 }
