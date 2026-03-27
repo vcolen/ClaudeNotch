@@ -234,7 +234,7 @@
 				B23E6FEC2F74670B002024AE /* WaterDropAnimator.swift */,
 				A1B2C3D400000036 /* WaterDropView.swift */,
 				C1D2E3F400000001 /* TerminalWindowTiler.swift */,
-			A1B2C3D40000002C /* WindowHighlighter.swift */,
+				A1B2C3D40000002C /* WindowHighlighter.swift */,
 			);
 			path = Integration;
 			sourceTree = "<group>";
@@ -253,7 +253,7 @@
 				A1B2C3D400000048 /* WaterDropGeometryTests.swift */,
 				A1B2C3D400000049 /* WaterDropAnimationTests.swift */,
 				A1B2C3D40000004A /* ProcessScannerTests.swift */,
-			C1D2E3F400000003 /* TerminalWindowTilerTests.swift */,
+				C1D2E3F400000003 /* TerminalWindowTilerTests.swift */,
 			);
 			path = ClaudeNotchTests;
 			sourceTree = "<group>";
@@ -420,7 +420,7 @@
 				B23E6FE92F74670A002024AE /* ProcessScanner.swift in Sources */,
 				B23E6FEB2F74670B002024AE /* WaterDropAnimator.swift in Sources */,
 				B23E6FED2F74670C002024AE /* WaterDropView.swift in Sources */,
-			C1D2E3F400000002 /* TerminalWindowTiler.swift in Sources */,
+				C1D2E3F400000002 /* TerminalWindowTiler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -439,7 +439,7 @@
 				A1B2C3D4000000D9 /* WaterDropGeometryTests.swift in Sources */,
 				A1B2C3D4000000DA /* WaterDropAnimationTests.swift in Sources */,
 				B23E6FE82F74660F002024AE /* ProcessScannerTests.swift in Sources */,
-			C1D2E3F400000004 /* TerminalWindowTilerTests.swift in Sources */,
+				C1D2E3F400000004 /* TerminalWindowTilerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -630,7 +630,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = QNHX86K7F4;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
@@ -650,7 +649,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = QNHX86K7F4;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 16.0;
