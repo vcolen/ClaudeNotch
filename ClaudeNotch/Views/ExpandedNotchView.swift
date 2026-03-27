@@ -55,7 +55,6 @@ struct ExpandedNotchView: View {
                     )
             }
             .buttonStyle(.plain)
-            .disabled(tiler?.canTidy != true)
             .onHover { hovering in
                 withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
                     isTidyHovered = hovering
