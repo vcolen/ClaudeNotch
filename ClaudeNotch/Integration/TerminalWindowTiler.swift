@@ -15,6 +15,14 @@ final class TerminalWindowTiler {
     private weak var screen: NSScreen?
 
     private var animationTask: Task<Void, Never>?
+    private var animationGeneration = 0
+
+    /// Wraps AXUIElement for safe transfer to detached tasks.
+    /// AXUIElement is mach IPC under the hood — inherently thread-safe.
+    private struct SendableAXWindow: @unchecked Sendable {
+        let axElement: AXUIElement
+        let startFrame: CGRect
+    }
 
     nonisolated(unsafe) private static let log = Logger(subsystem: "com.claudenotch", category: "TerminalWindowTiler")
 
@@ -310,48 +318,92 @@ final class TerminalWindowTiler {
 
     // MARK: - Animation
 
+    private static let tileStepCount = 10
+
+    /// Cubic ease-in-out: smooth acceleration then deceleration.
+    nonisolated private static func ease(_ t: Double) -> Double {
+        t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+    }
+
+    nonisolated private static func interpolate(_ from: CGRect, _ to: CGRect, _ t: Double) -> CGRect {
+        let et = ease(t)
+        return CGRect(
+            x: from.origin.x + (to.origin.x - from.origin.x) * et,
+            y: from.origin.y + (to.origin.y - from.origin.y) * et,
+            width: from.width + (to.width - from.width) * et,
+            height: from.height + (to.height - from.height) * et
+        )
+    }
+
     private func animateWindows(_ resolved: [(info: WindowInfo, axElement: AXUIElement)], to targets: [CGRect]) {
         isAnimating = true
         animationTask?.cancel()
 
-        let startFrames = resolved.map(\.info.bounds)
-        let duration: Double = 0.3
-        let startTime = CACurrentMediaTime()
-
-        animationTask = Task { [weak self] in
-            guard let self else { return }
-            defer { self.isAnimating = false }
-
-            /// Cubic ease-in-out: smooth acceleration then deceleration.
-            func ease(_ t: Double) -> Double {
-                t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+        // Respect Reduce Motion accessibility setting — snap immediately
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            for (i, pair) in resolved.enumerated() {
+                Self.setWindowFrame(targets[i], axElement: pair.axElement)
             }
+            isAnimating = false
+            return
+        }
 
-            func interpolate(_ from: CGRect, _ to: CGRect, _ t: Double) -> CGRect {
-                let et = ease(t)
-                return CGRect(
-                    x: from.origin.x + (to.origin.x - from.origin.x) * et,
-                    y: from.origin.y + (to.origin.y - from.origin.y) * et,
-                    width: from.width + (to.width - from.width) * et,
-                    height: from.height + (to.height - from.height) * et
-                )
-            }
+        animationGeneration += 1
+        let generation = animationGeneration
 
-            while true {
-                try? await Task.sleep(for: .milliseconds(16))
+        let windows = resolved.enumerated().map { SendableAXWindow(axElement: $1.axElement, startFrame: $1.info.bounds) }
+        let stepCount = Self.tileStepCount
+
+        // Pre-compute all interpolated frames for each step (let-bound for Sendable)
+        let stepFrames: [[CGRect]] = (1...stepCount).map { step in
+            let t = Double(step) / Double(stepCount)
+            return zip(windows.map(\.startFrame), targets).map { Self.interpolate($0, $1, t) }
+        }
+        let sendableTargets = targets
+
+        // Detached task runs AX calls off the main actor.
+        // A regular Task awaits it and clears isAnimating on @MainActor.
+        let axWork = Task.detached(priority: .userInitiated) {
+            for step in 0..<stepCount {
                 guard !Task.isCancelled else { break }
+                let frames = stepFrames[step]
 
-                let elapsed = CACurrentMediaTime() - startTime
-                // Safety timeout: if elapsed time exceeds duration + 1s, bail out
-                if elapsed > duration + 1.0 { break }
-                let progress = min(elapsed / duration, 1.0)
+                await withTaskGroup(of: Void.self) { group in
+                    for (i, window) in windows.enumerated() {
+                        let frame = frames[i]
+                        // Skip AX call when delta < 1pt (avoids wasted IPC)
+                        let prevFrame = step > 0 ? stepFrames[step - 1][i] : window.startFrame
+                        let dx = abs(frame.origin.x - prevFrame.origin.x)
+                        let dy = abs(frame.origin.y - prevFrame.origin.y)
+                        let dw = abs(frame.width - prevFrame.width)
+                        let dh = abs(frame.height - prevFrame.height)
+                        if dx < 1 && dy < 1 && dw < 1 && dh < 1 { continue }
 
-                for (i, pair) in resolved.enumerated() {
-                    let frame = interpolate(startFrames[i], targets[i], progress)
-                    TerminalWindowTiler.setWindowFrame(frame, axElement: pair.axElement)
+                        group.addTask {
+                            TerminalWindowTiler.setWindowFrame(frame, axElement: window.axElement)
+                        }
+                    }
                 }
+            }
 
-                if progress >= 1.0 { break }
+            // Final snap to exact targets for pixel-perfect end state
+            if !Task.isCancelled {
+                await withTaskGroup(of: Void.self) { group in
+                    for (i, window) in windows.enumerated() {
+                        let target = sendableTargets[i]
+                        group.addTask {
+                            TerminalWindowTiler.setWindowFrame(target, axElement: window.axElement)
+                        }
+                    }
+                }
+            }
+        }
+
+        // This Task inherits @MainActor — awaits the detached work then clears state
+        animationTask = Task {
+            await axWork.value
+            if animationGeneration == generation {
+                isAnimating = false
             }
         }
     }
