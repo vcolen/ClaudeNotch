@@ -159,6 +159,23 @@ struct TilerFrameTests {
         // Second column starts at x = 495 + 10 = 505
         #expect(frames[1].origin.x == 505)
     }
+
+    @Test("Single-column multi-row layout produces correct frames")
+    func singleColumnMultiRow() {
+        let frames = TerminalWindowTiler.computeFrames(
+            layout: [1, 1], in: CGRect(x: 0, y: 0, width: 800, height: 600), gap: 10
+        )
+        #expect(frames.count == 2)
+        // Each window should fill the full width (1 column, no column gap)
+        #expect(frames[0].width == 800)
+        #expect(frames[1].width == 800)
+        // Row height: (600 - 10 gap) / 2 = 295
+        #expect(frames[0].height == 295)
+        #expect(frames[1].height == 295)
+        // First row at y=0, second at 295+10=305
+        #expect(frames[0].origin.y == 0)
+        #expect(frames[1].origin.y == 305)
+    }
 }
 
 @Suite("TerminalWindowTiler Window Filtering")
@@ -184,11 +201,11 @@ struct TilerWindowFilterTests {
     @Test("WindowInfo initializes from valid dictionary")
     func validDictInit() {
         let dict: [String: Any] = [
-            "kCGWindowOwnerPID": 1234,
-            "kCGWindowNumber": 42,
-            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
-            "kCGWindowOwnerName": "iTerm2",
-            "kCGWindowLayer": 0,
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 0,
         ]
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info != nil)
@@ -200,11 +217,11 @@ struct TilerWindowFilterTests {
     @Test("WindowInfo rejects non-zero layer")
     func rejectsNonZeroLayer() {
         let dict: [String: Any] = [
-            "kCGWindowOwnerPID": 1234,
-            "kCGWindowNumber": 42,
-            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
-            "kCGWindowOwnerName": "iTerm2",
-            "kCGWindowLayer": 1,
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 1,
         ]
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info == nil)
@@ -213,11 +230,11 @@ struct TilerWindowFilterTests {
     @Test("WindowInfo rejects non-terminal apps")
     func rejectsNonTerminal() {
         let dict: [String: Any] = [
-            "kCGWindowOwnerPID": 1234,
-            "kCGWindowNumber": 42,
-            "kCGWindowBounds": ["X": 100, "Y": 200, "Width": 800, "Height": 600],
-            "kCGWindowOwnerName": "Safari",
-            "kCGWindowLayer": 0,
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "Safari",
+            kCGWindowLayer as String: 0,
         ]
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info == nil)
@@ -232,10 +249,10 @@ struct TilerWindowFilterTests {
     @Test("WindowInfo rejects missing bounds key")
     func rejectsMissingBounds() {
         let dict: [String: Any] = [
-            "kCGWindowOwnerPID": 1234,
-            "kCGWindowNumber": 42,
-            "kCGWindowOwnerName": "iTerm2",
-            "kCGWindowLayer": 0,
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 0,
         ]
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info == nil)
@@ -244,11 +261,59 @@ struct TilerWindowFilterTests {
     @Test("WindowInfo rejects malformed bounds dict")
     func rejectsMalformedBounds() {
         let dict: [String: Any] = [
-            "kCGWindowOwnerPID": 1234,
-            "kCGWindowNumber": 42,
-            "kCGWindowOwnerName": "iTerm2",
-            "kCGWindowLayer": 0,
-            "kCGWindowBounds": ["X": 100, "Y": 200],  // missing Width and Height
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 0,
+            kCGWindowBounds as String: ["X": 100, "Y": 200],  // missing Width and Height
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects missing PID")
+    func rejectsMissingPID() {
+        let dict: [String: Any] = [
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects missing window number")
+    func rejectsMissingWindowNumber() {
+        let dict: [String: Any] = [
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "iTerm2",
+            kCGWindowLayer as String: 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects missing owner name")
+    func rejectsMissingOwnerName() {
+        let dict: [String: Any] = [
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowLayer as String: 0,
+        ]
+        let info = TerminalWindowTiler.WindowInfo(from: dict)
+        #expect(info == nil)
+    }
+
+    @Test("WindowInfo rejects missing layer")
+    func rejectsMissingLayer() {
+        let dict: [String: Any] = [
+            kCGWindowOwnerPID as String: 1234,
+            kCGWindowNumber as String: 42,
+            kCGWindowBounds as String: ["X": 100, "Y": 200, "Width": 800, "Height": 600],
+            kCGWindowOwnerName as String: "iTerm2",
         ]
         let info = TerminalWindowTiler.WindowInfo(from: dict)
         #expect(info == nil)
@@ -286,34 +351,75 @@ struct TilerCyclingTests {
 @Suite("TerminalWindowTiler Coordinate Conversion")
 struct TilerCoordinateTests {
 
-    @Test("visibleFrameInTopLeft converts bottom-left to top-left origin")
+    @Test("topLeftY converts bottom-left to top-left origin")
     func topLeftConversion() {
+        // NSScreen cannot be constructed in tests, so we verify the coordinate math directly.
         // Simulate a 1440x900 screen with a 25px menu bar
         // visibleFrame in Cocoa coords: origin at (0, 0), size 1440x875 (900-25 menu bar)
         // Expected top-left: origin at (0, 25), size 1440x875
-        // But we can't create an NSScreen, so test the static helper if extracted.
-        // For now, test the math directly:
-        // topLeftY = full.height - visible.origin.y - visible.height + full.origin.y
-        // = 900 - 0 - 875 + 0 = 25
-        let fullHeight: CGFloat = 900
-        let visibleOriginY: CGFloat = 0
-        let visibleHeight: CGFloat = 875
-        let fullOriginY: CGFloat = 0
-        let topLeftY = fullHeight - visibleOriginY - visibleHeight + fullOriginY
+        let topLeftY = TerminalWindowTiler.topLeftY(
+            fullHeight: 900, visibleOriginY: 0, visibleHeight: 875, fullOriginY: 0
+        )
         #expect(topLeftY == 25)
     }
 
-    @Test("visibleFrameInTopLeft accounts for non-primary monitor offset")
+    @Test("topLeftY accounts for non-primary monitor offset")
     func nonPrimaryMonitorOffset() {
         // Non-primary monitor at y=-900 in Cocoa coords
         // full frame: (1440, -900, 1920, 1080)
         // visible frame: (1440, -900, 1920, 1055) — 25px menu bar
-        let fullHeight: CGFloat = 1080
-        let visibleOriginY: CGFloat = -900
-        let visibleHeight: CGFloat = 1055
-        let fullOriginY: CGFloat = -900
-        let topLeftY = fullHeight - visibleOriginY - visibleHeight + fullOriginY
+        let topLeftY = TerminalWindowTiler.topLeftY(
+            fullHeight: 1080, visibleOriginY: -900, visibleHeight: 1055, fullOriginY: -900
+        )
         // = 1080 - (-900) - 1055 + (-900) = 1080 + 900 - 1055 - 900 = 25
         #expect(topLeftY == 25)
+    }
+}
+
+@Suite("TerminalWindowTiler Easing")
+struct TilerEasingTests {
+
+    @Test("ease(0) == 0 and ease(1) == 1")
+    func easeBoundary() {
+        #expect(TerminalWindowTiler.ease(0) == 0)
+        #expect(TerminalWindowTiler.ease(1) == 1)
+    }
+
+    @Test("ease(0.5) == 0.5")
+    func easeMidpoint() {
+        #expect(TerminalWindowTiler.ease(0.5) == 0.5)
+    }
+
+    @Test("ease is symmetric: ease(t) + ease(1-t) ≈ 1")
+    func easeSymmetry() {
+        let sum = TerminalWindowTiler.ease(0.25) + TerminalWindowTiler.ease(0.75)
+        #expect(abs(sum - 1.0) < 1e-10)
+    }
+
+    @Test("ease is monotonically increasing")
+    func easeMonotonic() {
+        var prev = 0.0
+        for i in 1...10 {
+            let t = Double(i) / 10.0
+            let val = TerminalWindowTiler.ease(t)
+            #expect(val >= prev, "ease(\(t)) = \(val) should be >= ease(\(Double(i-1)/10.0)) = \(prev)")
+            prev = val
+        }
+    }
+
+    @Test("interpolate at t=0 returns start rect")
+    func interpolateStart() {
+        let a = CGRect(x: 10, y: 20, width: 100, height: 200)
+        let b = CGRect(x: 50, y: 60, width: 300, height: 400)
+        let result = TerminalWindowTiler.interpolate(a, b, 0)
+        #expect(result == a)
+    }
+
+    @Test("interpolate at t=1 returns end rect")
+    func interpolateEnd() {
+        let a = CGRect(x: 10, y: 20, width: 100, height: 200)
+        let b = CGRect(x: 50, y: 60, width: 300, height: 400)
+        let result = TerminalWindowTiler.interpolate(a, b, 1)
+        #expect(result == b)
     }
 }

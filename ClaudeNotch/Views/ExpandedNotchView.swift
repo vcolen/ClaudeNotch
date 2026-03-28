@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ExpandedNotchView: View {
     let instanceManager: InstanceManager
-    var tiler: TerminalWindowTiler?
+    let tiler: TerminalWindowTiler
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
@@ -36,7 +36,7 @@ struct ExpandedNotchView: View {
     }
 
     private var tidyButtonOpacity: Double {
-        guard tiler?.canTidy == true else { return 0.3 }
+        guard tiler.canTidy else { return 0.3 }
         return isTidyHovered ? 0.8 : 0.5
     }
 
@@ -44,7 +44,7 @@ struct ExpandedNotchView: View {
         HStack {
             Spacer()
             Button {
-                tiler?.tidy()
+                tiler.tidy()
             } label: {
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 11, weight: .medium))
@@ -56,6 +56,8 @@ struct ExpandedNotchView: View {
                     )
             }
             .buttonStyle(.plain)
+            .help("Tidy terminal windows")
+            .accessibilityLabel("Tidy terminal windows")
             .onHover { hovering in
                 withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
                     isTidyHovered = hovering
@@ -184,7 +186,7 @@ struct ExpandedNotchView: View {
 #Preview {
     ExpandedNotchView(
         instanceManager: InstanceManager(),
-        tiler: nil
+        tiler: TerminalWindowTiler(screen: NSScreen.main!)
     )
     .frame(width: 340)
     .background(Color.black)

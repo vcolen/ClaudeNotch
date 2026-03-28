@@ -40,7 +40,7 @@ Each layout is represented as an array of row sizes. For example, `[3,4]` means 
 
 ### New file: `Integration/TerminalWindowTiler.swift`
 
-Single class that owns all tiling logic. Conforms to `@Observable` so the button can react to state.
+`@MainActor @Observable` class that owns all tiling logic so the button can react to state.
 
 **Properties:**
 - `lastWindowCount: Int` — detects count changes to reset cycling
@@ -49,7 +49,7 @@ Single class that owns all tiling logic. Conforms to `@Observable` so the button
 
 **Public API:**
 - `tidy()` — main entry point called by the button. Discovers windows, computes layout, animates into position. On subsequent calls, cycles to next layout.
-- `canTidy: Bool` — computed property: true when Accessibility is trusted and terminal windows exist.
+- `canTidy: Bool` — computed property: true when Accessibility is trusted and not currently animating.
 
 ### Window Discovery
 
@@ -92,9 +92,9 @@ The Accessibility API sets positions instantly. To achieve smooth animation:
 
 1. Capture each window's current frame from CGWindowList
 2. Compute target frames from the layout engine
-3. Use a `CVDisplayLink` timer (same pattern as `WaterDropAnimator.swift`) to interpolate over ~300ms. Note: `NSAnimationHelper` cannot drive AXUIElement attributes — manual interpolation via display link is required.
-4. On each tick, compute intermediate position/size and set via AXUIElement
-5. Use ease-in-out timing curve
+3. Manual step-based interpolation using structured concurrency (`Task.detached` + `withTaskGroup`). 10 steps at ~25ms each = ~250ms animation. Each step fires AX calls for all windows in parallel.
+4. On each step, compute intermediate position/size via cubic ease-in-out and set via AXUIElement
+5. Use cubic ease-in-out timing curve (`4t^3` for first half, `1 - (-2t+2)^3/2` for second half)
 6. If animation stutters due to AXUIElement IPC overhead with many windows, fall back to instant repositioning as an acceptable degradation
 
 ### Permission Handling
@@ -103,10 +103,8 @@ On first call to `tidy()`:
 
 1. Check `AXIsProcessTrusted()`
 2. If not trusted:
-   - Show a brief explanation (can use a small popover from the button)
-   - Open System Settings → Privacy → Accessibility via `NSWorkspace.shared.open(URL)`
-   - Disable the button until permission is granted
-   - Poll `AXIsProcessTrusted()` briefly after opening Settings (every 1s for ~30s)
+   - Call `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt: true` to trigger the system's native permission dialog
+   - Return early; user can retry after granting permission
 
 ### Cycling Behavior
 

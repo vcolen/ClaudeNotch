@@ -4,7 +4,9 @@
 
 **Goal:** Add a button to the expanded notch that tiles all visible terminal windows into clean grid layouts using the Accessibility API, with cycling through alternatives on each tap.
 
-**Architecture:** New `TerminalWindowTiler` class in `Integration/` handles window discovery (CGWindowList), layout computation (static lookup table), and positioning (AXUIElement). The tidy button is added to the `ExpandedNotchView` header. Animation uses CVDisplayLink-driven interpolation for smooth repositioning.
+**Architecture:** New `TerminalWindowTiler` class in `Integration/` handles window discovery (CGWindowList), layout computation (static lookup table), and positioning (AXUIElement). The tidy button is added to the `ExpandedNotchView` header. Animation uses step-based interpolation with structured concurrency for smooth repositioning.
+
+> **Post-implementation note:** Implementation deviated from this plan in several ways (animation uses `Task.detached` + `withTaskGroup` instead of CVDisplayLink, permission handling uses `AXIsProcessTrustedWithOptions` with prompt instead of manual Settings navigation, class is annotated with `@MainActor`). See the actual source code for current behavior.
 
 **Tech Stack:** Swift, Accessibility API (AXUIElement), CoreGraphics (CGWindowList), CVDisplayLink, SwiftUI, Swift Testing
 
@@ -481,8 +483,8 @@ Add to `TerminalWindowTiler.swift`:
         var newSize = target.size
         guard let posVal = AXValueCreate(.cgPoint, &newPos),
               let sizeVal = AXValueCreate(.cgSize, &newSize) else { return }
-        AXUIElementSetAttributeValue(axElement, kAXSizeAttribute as CFString, sizeVal)
         AXUIElementSetAttributeValue(axElement, kAXPositionAttribute as CFString, posVal)
+        AXUIElementSetAttributeValue(axElement, kAXSizeAttribute as CFString, sizeVal)
     }
 ```
 

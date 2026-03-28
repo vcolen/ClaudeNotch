@@ -4,7 +4,7 @@ struct NotchView: View {
     let instanceManager: InstanceManager
     let panelState: PanelState
     let notificationManager: NotificationManager
-    var tiler: TerminalWindowTiler?
+    let tiler: TerminalWindowTiler
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
@@ -277,7 +277,7 @@ struct NotchView: View {
         instanceManager: InstanceManager(skipBootstrap: true),
         panelState: PanelState(hasNotch: true, notchHeight: 37),
         notificationManager: NotificationManager(),
-        tiler: nil
+        tiler: TerminalWindowTiler(screen: NSScreen.main!)
     )
     .frame(width: 400, height: 500, alignment: .top)
     .background(Color.gray.opacity(0.2))
