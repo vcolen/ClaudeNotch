@@ -22,5 +22,7 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>ClaudeNotch needs to control iTerm2 to focus terminal sessions.</string>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>ClaudeNotch needs Accessibility permission to arrange terminal windows.</string>
 </dict>
 </plist>

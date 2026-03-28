@@ -2,16 +2,20 @@ import SwiftUI
 
 struct ExpandedNotchView: View {
     let instanceManager: InstanceManager
+    let tiler: TerminalWindowTiler
     var onNewInstance: (() -> Void)?
     var onSelectInstance: ((ClaudeInstance) -> Void)?
 
     @State private var isRevealed = false
     // Managed inline because hover state drives foreground text opacity.
     @State private var isButtonHovered = false
+    @State private var isTidyHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
+            header
+
             if instanceManager.instances.isEmpty {
                 emptyState
             } else {
@@ -29,6 +33,39 @@ struct ExpandedNotchView: View {
                 isRevealed = true
             }
         }
+    }
+
+    private var tidyButtonOpacity: Double {
+        guard tiler.canTidy else { return 0.3 }
+        return isTidyHovered ? 0.8 : 0.5
+    }
+
+    private var header: some View {
+        HStack {
+            Spacer()
+            Button {
+                tiler.tidy()
+            } label: {
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(tidyButtonOpacity))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(isTidyHovered ? Color.white.opacity(0.06) : .clear)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Tidy terminal windows")
+            .accessibilityLabel("Tidy terminal windows")
+            .onHover { hovering in
+                withMotionAnimation(NotchTokens.Animation.hoverQuick, reduceMotion: reduceMotion) {
+                    isTidyHovered = hovering
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
     }
 
     private var instanceList: some View {
@@ -148,7 +185,8 @@ struct ExpandedNotchView: View {
 
 #Preview {
     ExpandedNotchView(
-        instanceManager: InstanceManager()
+        instanceManager: InstanceManager(),
+        tiler: TerminalWindowTiler(screen: NSScreen.main!)
     )
     .frame(width: 340)
     .background(Color.black)

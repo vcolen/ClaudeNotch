@@ -11,6 +11,7 @@ final class NotchPanelController {
     let notificationManager: NotificationManager
 
     private let expandedWidth: CGFloat = 340
+    private let tiler: TerminalWindowTiler
     private var observationTask: Task<Void, Never>?
     private var selectionAnimationTask: Task<Void, Never>?
 
@@ -20,6 +21,7 @@ final class NotchPanelController {
         self.screen = screen
         self.instanceManager = instanceManager
         self.notificationManager = NotificationManager()
+        self.tiler = TerminalWindowTiler(screen: screen)
 
         let geo = ScreenGeometry(screen: screen)
 
@@ -69,6 +71,7 @@ final class NotchPanelController {
             instanceManager: instanceManager,
             panelState: panelState,
             notificationManager: notificationManager,
+            tiler: self.tiler,
             onNewInstance: {
                 let panel = NSOpenPanel()
                 panel.canChooseDirectories = true
@@ -229,10 +232,12 @@ final class NotchPanelController {
             )
         }
 
+        tiler.updateScreen(newScreen)
         animateFrameUpdate()
     }
 
     func tearDown() {
+        tiler.cancel()
         observationTask?.cancel()
         observationTask = nil
         panel.orderOut(nil)

@@ -11,5 +11,8 @@ build/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # macOS
 .DS_Store
